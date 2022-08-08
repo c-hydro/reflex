@@ -1,0 +1,29 @@
+{
+  "flags": {
+    "clear_ancillary": true
+  },
+  "algorithm": {
+    "version": "1.0.0",
+    "number_of_neighbours": 3
+  },
+  "domain": {
+    "name": "fiji_SSP585_2061_2100"
+  },
+  "discharge": {
+    "file": "/home/andrea/CIMA/PROJECT_various/fiji_vanatu/quantili_fiji_SSP585_IPSL_CM6A_LR__2061_2100.txt",
+    "sep": " ",
+    "index_col": 0,
+    "q_cols": [3,4,5,6,7,8,9,10,11,12,13],
+    "T_vals": [2,5,10,20,25,50,100,200,250,500,1000],
+    "__info__": "indicate with T_vals=0 the column with the mean of the series if available"
+  },
+  "paths": {
+    "basins_hydro_file": "/home/andrea/CIMA/PROJECT_various/fiji_vanatu/fiji/Aree_competenza_fiji.txt",
+    "basin_hydro_area": "/home/andrea/CIMA/PROJECT_various/fiji_vanatu/fiji/upstream_area_km2.tif",
+    "basin_reflex_file": "/home/andrea/CIMA/PROJECT_various/fiji_vanatu/fiji/v_fiji_30m_subbasins_dissolved.shp",
+    "network_reflex_file": "/home/andrea/CIMA/PROJECT_various/fiji_vanatu/fiji/v_fiji_30m_streams_features.shp",
+    "output_folder": "/home/andrea/CIMA/PROJECT_various/fiji_vanatu/fiji/output",
+    "ancillary_folder": "/home/andrea/CIMA/PROJECT_various/fiji_vanatu/fiji/ancillary",
+    "log_folder": "/home/andrea/CIMA/PROJECT_various/fiji_vanatu/fiji/log"
+  }
+}
