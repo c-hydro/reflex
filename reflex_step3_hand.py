@@ -17,6 +17,7 @@ Version(s):
 20220406 (2.0.0) --> Full revision - Use pysheds for HAND definition
                                      Parallel implementation
 20220808 (2.0.2) --> Optimized multiprocessing
+                     Add checks for missing hand maps
 """
 # -------------------------------------------------------------------------------------
 
@@ -31,6 +32,7 @@ from multiprocessing import Pool, Manager, set_start_method, get_context, cpu_co
 from lib.reflex_tools_basins import compute_hand, compute_hand_ce
 from lib.reflex_tools_utils import Give_Elapsed_Time, set_logging, read_file_json
 from numba import config
+from pysheds.grid import Grid
 
 # -------------------------------------------------------------------------------------
 
@@ -95,6 +97,10 @@ def main():
     step1_dir_name = data_settings["step_1"]["dir_name"].replace("{base_path}",base_path)
     step2_dir_name = data_settings["step_2"]["dir_name"].replace("{base_path}",base_path)
     step3_dir_name = data_settings["step_3"]["dir_name"].replace("{base_path}", base_path)
+    try:
+        max_attempts = data_settings["step_3"]["max_attempts_make_hand"]
+    except:
+        max_attempts = 5
 
     coastal_expansion_active = data_settings["step_3"]["coastal_expansion"]["enable"]
     gradient_limit = data_settings["step_3"]["coastal_expansion"]["gradient_limit"]
@@ -145,13 +151,14 @@ def main():
     manager = Manager()
     d = manager.dict()
     d["streams_gdf"] = streams_gdf
+    # -------------------------------------------------------------------------------------
 
+    # -------------------------------------------------------------------------------------
+    # Compute hands no ce
     logging.info("--> Compute hand maps...")
-    from pysheds.grid import Grid
     grid = Grid.from_raster(hand_settings["input_files"]["rst_dem"])
     hand_settings["grid"] = grid
     chunks = [streams_gdf["stream"].values[i:i + chunk_size] for i in range(0, len(streams_gdf["stream"].values), chunk_size)]
-
     for chunk in chunks:
         logging.info(" ---> Launching chunk from " + str(min(chunk)) + " to " + str(max(chunk)))
         exec_pool = get_context('spawn').Pool(process_max)
@@ -159,8 +166,43 @@ def main():
             exec_pool.apply_async(compute_hand, args=(stream, hand_settings, d))
         exec_pool.close()
         exec_pool.join()
-        logging.info("--> Compute hand maps...DONE")
+    logging.info("--> Compute hand maps...DONE")
 
+    logging.info("--> Verify presence of missing hand maps...")
+    missing_hand = []
+    attempt_no = 0
+    mask_type = "ext_no_ce"
+    missing_hand = check_missing_hands(streams_gdf["stream"].values, missing_hand, "ext_no_ce", hand_settings)
+
+    if len(missing_hand) == 0:
+        logging.info(" --> All the maps have been correctly produced...")
+    else:
+        while len(missing_hand) > 0 and attempt_no <= max_attempts:
+            logging.info(str(len(missing_hand)) + " masks are missing! Compute...")
+            logging.info(', '.join([str(i) for i in missing_hand]))
+            exec_pool = get_context('spawn').Pool(process_max)
+            for stream in missing_hand:
+                exec_pool.apply_async(compute_hand, args=(stream, hand_settings, d))
+            exec_pool.close()
+            exec_pool.join()
+
+            for stream in missing_hand:
+                if os.path.isfile(os.path.join(hand_settings["output_folder"], mask_type,
+                                     "hand_" + hand_settings["hand_method"] + "_" + mask_type + "_" + str(
+                                         stream) + ".tif")):
+                    missing_hand.remove(stream)
+
+            attempt_no = attempt_no + 1
+
+        if len(missing_hand) > 0:
+            logging.error(" --> Some hand maps has not been produced after " + str(
+                attempt_no) + " attempts! Verify problems in streams: " + ', '.join([str(i) for i in missing_hand]))
+            raise RuntimeError
+    logging.info("--> Verify presence of missing hand maps...DONE")
+    # -------------------------------------------------------------------------------------
+
+    # -------------------------------------------------------------------------------------
+    # Compute hands ce
     if coastal_expansion_active:
         if produce_only_used_hand_ce:
             streams_in = streams_gdf.loc[(streams_gdf["next_strea"] == -1) | (streams_gdf["gradient"] <= gradient_limit)]
@@ -177,11 +219,43 @@ def main():
             exec_pool.join()
             logging.info("--> Compute hand maps with coastal expansion...DONE")
 
+    logging.info("--> Verify presence of missing hand maps...")
+    missing_hand = []
+    attempt_no = 0
+    mask_type = "ext_ce"
+    missing_hand = check_missing_hands(streams_in, missing_hand, mask_type, hand_settings)
+
+    if len(missing_hand) == 0:
+        logging.info(" --> All the maps have been correctly produced...")
+    else:
+        while len(missing_hand) > 0 and attempt_no <= max_attempts:
+            logging.info(str(len(missing_hand)) + " masks are missing! Compute...")
+            logging.info(', '.join([str(i) for i in missing_hand]))
+            exec_pool = get_context('spawn').Pool(process_max)
+            for stream in missing_hand:
+                exec_pool.apply_async(compute_hand_ce, args=(stream, hand_settings, d))
+            exec_pool.close()
+            exec_pool.join()
+
+            for stream in missing_hand:
+                if os.path.isfile(os.path.join(hand_settings["output_folder"], mask_type,
+                                               "hand_" + hand_settings["hand_method"] + "_" + mask_type + "_" + str(
+                                                   stream) + ".tif")):
+                    missing_hand.remove(stream)
+
+            attempt_no = attempt_no + 1
+        if len(missing_hand) > 0:
+            logging.error(" --> Some hand maps has not been produced after " + str(
+                attempt_no) + " attempts! Verify problems in streams: " + ",".join(str(missing_hand)))
+            raise RuntimeError
+    logging.info("--> Verify presence of missing hand maps...DONE")
+    # -------------------------------------------------------------------------------------
+
+    # -------------------------------------------------------------------------------------
     # Estimate total execution time
     tot_elapsed_time_sec = float(time.time() - code_start_time)
     tot_elapsed_time,time_units = Give_Elapsed_Time(tot_elapsed_time_sec)
 
-    # -------------------------------------------------------------------------------------
     # Info algorithm
 
     logging.info(' ')
@@ -231,6 +305,16 @@ def fill_input_files(input_files_raw, input_dict):
         filled_input[key] = input_files_raw[key].format(**input_dict)
     return filled_input
 # -------------------------------------------------------------------------------------
+
+# ----------------------------------------------------------------------------
+def check_missing_hands(streams, missing_hand, mask_type, hand_settings):
+    for stream in streams:
+        if not os.path.isfile(os.path.join(hand_settings["output_folder"], mask_type,
+                                 "hand_" + hand_settings["hand_method"] + "_" + mask_type + "_" + str(
+                                     stream) + ".tif")):
+            missing_hand += [stream]
+    return missing_hand
+# ----------------------------------------------------------------------------
 
 # ----------------------------------------------------------------------------
 # Call script from external library

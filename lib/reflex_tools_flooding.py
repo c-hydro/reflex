@@ -87,8 +87,6 @@ def optimise_volume(stream_id, optimise_setting, d):
         vol_scaled = ((stream_row["Q_p_t"].values + (
                     stream_row["Q_p_t"].values - (t_ti * math.tan(stream_row["slope_hydrograph"].values)))) * t_ti) / 2
 
-    #vol_scaled = np.max((vol_scaled_trapez,vol_scaled_tri))
-
     opt_function = partial(optimize_flood_depth, hand_map.squeeze().values, vol_scaled, optimise_setting["areacell_m"])
     f_opt = minimize(opt_function, h_opt0, bounds=[(r_min,r_max)], method='L-BFGS-B')
 
@@ -103,7 +101,7 @@ def optimise_volume(stream_id, optimise_setting, d):
 
     flood_map.rio.to_raster(os.path.join(optimise_setting["out_path"], "tmp", "flood_m_bas_" + str(stream_id) + ".tif"))
 
-    return np.array((stream_id, vol_scaled, v_i[0], diff_opt))
+    return np.array((stream_id, vol_scaled, v_i[0], diff_opt), dtype='object')
 # ----------------------------------
 
 # ----------------------------------
