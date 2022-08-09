@@ -59,6 +59,7 @@
   },
   "step_3": {
     "dir_name": "{base_path}/hand",
+    "max_attempts_make_hand": 5,
     "coastal_expansion": {
       "enable": true,
       "gradient_limit": 0.0003,

@@ -17,7 +17,7 @@ Version(s):
 20220406 (2.0.0) --> Full revision - Integrated vector network and pfafstetter assignation for future integration of network editing
                                      Temporary removed MFD support
                                      Adopted pyshed dinf algorithms
-20220726 (2.0.1) --> Fix basin delineation procedure
+20220726 (2.0.2) --> Fix basin delineation procedure
 """
 # -------------------------------------------------------------------------------------
 # Import python libraries

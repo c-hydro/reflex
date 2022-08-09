@@ -239,7 +239,6 @@ def main():
     for chunk in chunks:
         logging.info(" ---> Launching chunk from " + str(min(chunk)) + " to " + str(max(chunk)))
         exec_pool = get_context('spawn').Pool(process_max)
-    #exec_pool = Pool(process_max)
         for stream in chunk: #stream_ids:
             exec_pool.apply_async(create_masks, args=(stream, masks_settings, d))
         exec_pool.close()
@@ -249,13 +248,12 @@ def main():
     for stream in stream_ids:
         if not os.path.isfile(os.path.join(masks_settings["masks_folder"], 'masks_shp_{}.shp'.format(stream))):
             missing_masks += [stream]
-
     attempt_no = 0
 
     while len(missing_masks) > 0 and attempt_no <= max_attempts:
-        print(str(len(missing_masks)) + " masks are missing! Compute...")
-        print(', '.join([str(i) for i in missing_masks]))
-        # exec_pool = Pool(process_max)
+        logging.info(str(len(missing_masks)) + " masks are missing! Compute...")
+        logging.info(', '.join([str(i) for i in missing_masks]))
+        logging.info("Attempt " + str(attempt_no))
         exec_pool = get_context('spawn').Pool(process_max)
         for stream in missing_masks:
             exec_pool.apply_async(create_masks, args=(stream, masks_settings, d))
@@ -266,7 +264,7 @@ def main():
             if os.path.isfile(os.path.join(masks_settings["masks_folder"], 'masks_shp_{}.shp'.format(stream))):
                 missing_masks.remove(stream)
 
-            attempt_no = attempt_no + 1
+        attempt_no = attempt_no + 1
 
     if len(missing_masks) > 0:
         logging.error(" --> Some masks has not been produced after " + str(
