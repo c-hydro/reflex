@@ -40,7 +40,7 @@ def optimize_flood_depth(hand,V_obj,areacell,h):
 # ----------------------------------
 ## Function to optimize the flooded volume in 2 steps
 def optimise_volume(stream_id, optimise_setting, d):
-    logging.info(" --> Optimize volume for stream " + str(stream_id))
+    print(" --> Optimize volume for stream " + str(stream_id))
 
     streams_gdf = d["streams_gdf"]
     stream_row = streams_gdf[streams_gdf["stream"] == stream_id]
@@ -55,7 +55,7 @@ def optimise_volume(stream_id, optimise_setting, d):
     hand_filename = optimise_setting["rst_hand"].format(mask_type=hand_type, stream_id=str(stream_id))
     hand_map = rxr.open_rasterio(hand_filename) / 100
 
-    logging.info(" ---> First attempt optimization...")
+    print(" ---> First attempt optimization...")
 
     r_min, r_max = optimise_setting["min_water_depth"], optimise_setting["max_water_depth"]
     h_first_attempt = r_min + rand(1) * (r_max - r_min)
@@ -67,7 +67,7 @@ def optimise_volume(stream_id, optimise_setting, d):
     h_opt0 = minimize(opt_function, h_first_attempt[0], bounds=[(r_min,r_max)], method='Powell')["x"]
     flood_extent = draw_flood_map(hand_map, h_opt0)
 
-    logging.info(" ---> Compute transit time...")
+    print(" ---> Compute transit time...")
 
     # compute transit time
     avg_depth = np.nanmean(flood_extent)

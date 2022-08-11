@@ -251,9 +251,9 @@ def compute_hand(stream_id, hand_settings, d):
     elif hand_settings["hand_method"] == 'd8':
         hand = grid.compute_hand(fdir=fdir, dem=dem * 100, mask=stream == stream_id, dirmap=(2,1,8,7,6,5,4,3), routing='d8')
 
-    grid.to_raster(hand, hand_out_file, apply_output_mask=True, dtype=np.float32)
+    grid.to_raster(hand, hand_out_file, apply_output_mask=True, dtype=np.float32, tiled=True)
     stream.mask=stream==stream_id
-    grid.to_raster(stream, stream_out_file, apply_input_mask=True, apply_output_mask=True, dtype=np.int16)
+    grid.to_raster(stream, stream_out_file, apply_input_mask=True, apply_output_mask=True, dtype=np.int16, tiled=True)
 
     print(" --> Compute stream " + str(stream_id) + " ...DONE!")
     return

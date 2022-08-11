@@ -48,6 +48,7 @@ import pandas as pd
 import sys
 from multiprocessing import Pool, Manager, cpu_count, set_start_method, get_context
 from numba import config
+from copy import deepcopy
 
 # -------------------------------------------------------------------------------------
 
@@ -260,9 +261,11 @@ def main():
         exec_pool.close()
         exec_pool.join()
 
+        missing_masks_out = deepcopy(missing_masks)
         for stream in missing_masks:
             if os.path.isfile(os.path.join(masks_settings["masks_folder"], 'masks_shp_{}.shp'.format(stream))):
-                missing_masks.remove(stream)
+                missing_masks_out.remove(stream)
+        missing_masks = missing_masks_out
 
         attempt_no = attempt_no + 1
 
