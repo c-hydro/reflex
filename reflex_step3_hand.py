@@ -17,7 +17,6 @@ Version(s):
 20220406 (2.0.0) --> Full revision - Use pysheds for HAND definition
                                      Parallel implementation
 20220808 (2.0.2) --> Optimized multiprocessing
-                     Add checks for missing hand maps
 """
 # -------------------------------------------------------------------------------------
 
@@ -33,6 +32,7 @@ from lib.reflex_tools_basins import compute_hand, compute_hand_ce
 from lib.reflex_tools_utils import Give_Elapsed_Time, set_logging, read_file_json
 from numba import config
 from pysheds.grid import Grid
+from copy import deepcopy
 
 # -------------------------------------------------------------------------------------
 
@@ -178,7 +178,7 @@ def main():
         logging.info(" --> All the maps have been correctly produced...")
     else:
         while len(missing_hand) > 0 and attempt_no <= max_attempts:
-            logging.info(str(len(missing_hand)) + " masks are missing! Compute...")
+            logging.info(str(len(missing_hand)) + " hand maps are missing! Compute...")
             logging.info(', '.join([str(i) for i in missing_hand]))
             exec_pool = get_context('spawn').Pool(process_max)
             for stream in missing_hand:
@@ -186,11 +186,11 @@ def main():
             exec_pool.close()
             exec_pool.join()
 
+            missing_hand_out = deepcopy(missing_hand)
             for stream in missing_hand:
-                if os.path.isfile(os.path.join(hand_settings["output_folder"], mask_type,
-                                     "hand_" + hand_settings["hand_method"] + "_" + mask_type + "_" + str(
-                                         stream) + ".tif")):
-                    missing_hand.remove(stream)
+                if os.path.isfile(os.path.join(hand_settings["output_folder"], mask_type, "hand_" + hand_settings["hand_method"] + "_" + mask_type + "_" + str(stream) + ".tif")):
+                    missing_hand_out.remove(stream)
+            missing_hand = missing_hand_out
 
             attempt_no = attempt_no + 1
 
@@ -219,36 +219,36 @@ def main():
             exec_pool.join()
             logging.info("--> Compute hand maps with coastal expansion...DONE")
 
-    logging.info("--> Verify presence of missing hand maps...")
-    missing_hand = []
-    attempt_no = 0
-    mask_type = "ext_ce"
-    missing_hand = check_missing_hands(streams_in, missing_hand, mask_type, hand_settings)
+        logging.info("--> Verify presence of missing hand maps...")
+        missing_hand = []
+        attempt_no = 0
+        mask_type = "ext_ce"
+        missing_hand = check_missing_hands(streams_in, missing_hand, mask_type, hand_settings)
 
-    if len(missing_hand) == 0:
-        logging.info(" --> All the maps have been correctly produced...")
-    else:
-        while len(missing_hand) > 0 and attempt_no <= max_attempts:
-            logging.info(str(len(missing_hand)) + " masks are missing! Compute...")
-            logging.info(', '.join([str(i) for i in missing_hand]))
-            exec_pool = get_context('spawn').Pool(process_max)
-            for stream in missing_hand:
-                exec_pool.apply_async(compute_hand_ce, args=(stream, hand_settings, d))
-            exec_pool.close()
-            exec_pool.join()
+        if len(missing_hand) == 0:
+            logging.info(" --> All the maps have been correctly produced...")
+        else:
+            while len(missing_hand) > 0 and attempt_no <= max_attempts:
+                logging.info(str(len(missing_hand)) + " masks are missing! Compute...")
+                logging.info(', '.join([str(i) for i in missing_hand]))
+                exec_pool = get_context('spawn').Pool(process_max)
+                for stream in missing_hand:
+                    exec_pool.apply_async(compute_hand_ce, args=(stream, hand_settings, d))
+                exec_pool.close()
+                exec_pool.join()
 
-            for stream in missing_hand:
-                if os.path.isfile(os.path.join(hand_settings["output_folder"], mask_type,
-                                               "hand_" + hand_settings["hand_method"] + "_" + mask_type + "_" + str(
-                                                   stream) + ".tif")):
-                    missing_hand.remove(stream)
+                missing_hand_out = deepcopy(missing_hand)
+                for stream in missing_hand:
+                    if os.path.isfile(os.path.join(hand_settings["output_folder"], mask_type, "hand_" + hand_settings["hand_method"] + "_" + mask_type + "_" + str(stream) + ".tif")):
+                        missing_hand_out.remove(stream)
+                missing_hand = missing_hand_out
 
-            attempt_no = attempt_no + 1
-        if len(missing_hand) > 0:
-            logging.error(" --> Some hand maps has not been produced after " + str(
-                attempt_no) + " attempts! Verify problems in streams: " + ",".join(str(missing_hand)))
-            raise RuntimeError
-    logging.info("--> Verify presence of missing hand maps...DONE")
+                attempt_no = attempt_no + 1
+            if len(missing_hand) > 0:
+                logging.error(" --> Some hand maps has not been produced after " + str(
+                    attempt_no) + " attempts! Verify problems in streams: " + ",".join(str(missing_hand)))
+                raise RuntimeError
+        logging.info("--> Verify presence of missing hand maps...DONE")
     # -------------------------------------------------------------------------------------
 
     # -------------------------------------------------------------------------------------

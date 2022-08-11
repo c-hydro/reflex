@@ -16,7 +16,6 @@ General command line:
 Version(s):
 20190220 (1.0.0) --> Beta release
 20220406 (2.0.0) --> Full revision
-20220808 (2.0.2) --> Parallelize mosaic flood maps
 """
 # -------------------------------------------------------------------------------------
 
@@ -40,7 +39,7 @@ import pandas as pd
 from lib.reflex_tools_flooding import optimise_volume
 from lib.reflex_tools_utils import Give_Elapsed_Time, Start_GRASS_py3, set_logging, read_file_json
 from multiprocessing import Pool, Manager, set_start_method, get_context, cpu_count
-
+from numba import config
 # -------------------------------------------------------------------------------------
 
 # -------------------------------------------------------------------------------------
@@ -127,7 +126,9 @@ def main():
     else:
         process_max = 1
 
-    chunk_size = data_settings["step_3"]["multiprocessing"]["chunk_size"]
+    max_maps = data_settings["step_4"]["merging_maps"]["max_maps_opened_together"]
+
+    config.THREADING_LAYER_PRIORITY = ["tbb", "omp", "workqueue"]
     ################################################################################
 
     # Record starting simulation time
@@ -177,7 +178,7 @@ def main():
     streams_gdf_out["diff_final"] = -9999
 
     results = []
-    exec_pool = Pool(process_max)
+    exec_pool = get_context('spawn').Pool(process_max)
     for stream in stream_ids:
         results.append(exec_pool.apply_async(optimise_volume, args=(stream, optimise_setting, d)))
     exec_pool.close()
@@ -193,23 +194,35 @@ def main():
     logging.info(" --> Merging flood maps...")
     grid = rxr.open_rasterio(os.path.join(step1_dir_name,'rst','r_' + domain_name  + "_" + rrs + "_" + drain_method_streams.lower() + "_streams.tif"))
     grid.values = np.zeros(grid.values.shape).astype("float32")
-    grid.rio.to_raster(os.path.join(optimise_setting["out_path"], "tmp", "base_map.tif"), compress="DEFLATE")
-    elements_per_chunk = min(int(np.ceil(len(stream_ids.values)/process_max)), chunk_size)
-    chunks = [stream_ids.values[i:i + elements_per_chunk] for i in range(0, len(stream_ids.values), elements_per_chunk)]
+    base_map = os.path.join(optimise_setting["out_path"], "tmp", "base_map.tif")
+    grid.rio.to_raster(base_map, compress="DEFLATE")
 
     src_grid = rio.open(os.path.join(optimise_setting["out_path"], "tmp", "base_map.tif"))
     optimise_setting["meta"] = src_grid.meta.copy()
     optimise_setting["meta"]["compress"] = "DEFLATE"
-    results =[]
-    exec_pool = Pool(process_max)
+    chunks = [stream_ids.values[i:i + max_maps] for i in range(0, len(stream_ids.values), max_maps)]
 
-    for chunk in chunks:
-        results.append(exec_pool.apply_async(merge_maps, args=(chunk, optimise_setting)))
-    exec_pool.close()
-    exec_pool.join()
+    if data_settings["step_4"]["merging_maps"]["multiprocessing_enabled"]:
+        results =[]
+        exec_pool = get_context('spawn').Pool(process_max)
 
-    logging.info(" --> Merge final map")
-    out_merged_array, out_trans = rio_merge.merge([result.get() for result in results], method=custom_merge)
+        for chunk in chunks:
+            results.append(exec_pool.apply_async(merge_maps_mp, args=(chunk, optimise_setting)))
+        exec_pool.close()
+        exec_pool.join()
+
+        logging.info(" --> Merge final map")
+        out_merged_array, out_trans = rio_merge.merge([result.get() for result in results], method=custom_merge)
+    else:
+        l_0 = [base_map]
+        out_merged_array = grid.copy().values
+        for chunk in chunks:
+            logging.info(" --> Merge maps for chunk " + str(chunk[0]) + "_" + str(chunk[-1]))
+            lista = l_0 + [os.path.join(optimise_setting["out_path"], "tmp", "flood_m_bas_" + str(stream_id) + ".tif") for stream_id in chunk]
+            chunk_max, out_trans = rio_merge.merge(lista, method=custom_merge)
+            out_merged_array = np.maximum(chunk_max, out_merged_array)
+            logging.info(" --> Merge maps for chunk " + str(chunk[0]) + "_" + str(chunk[-1]) + "...DONE")
+
     with rio.open(os.path.join(optimise_setting["out_path"], 'rst', 'flood_map_T' + str(return_period) + '_m.tif'), "w", **optimise_setting["meta"]) as dest:
         dest.write(out_merged_array)
 
@@ -290,18 +303,20 @@ def custom_merge(old_data, new_data, old_nodata, new_nodata, index=None, roff=No
 # ----------------------------------------------------------------------------
 
 # ----------------------------------------------------------------------------
-def merge_maps(chunk, optimise_setting):
-    logging.info(" --> Merge maps for chunk " + str(chunk[0]) + "_" + str(chunk[-1]))
+def merge_maps_mp(chunk, optimise_setting):
+    print(" --> Merge maps for chunk " + str(chunk[0]) + "_" + str(chunk[-1]))
     lista = [os.path.join(optimise_setting["out_path"], "tmp", "base_map.tif")] + [os.path.join(optimise_setting["out_path"], "tmp", "flood_m_bas_" + str(stream_id) + ".tif") for stream_id in chunk]
     merged_array, out_trans = rio_merge.merge(lista, method=custom_merge)
     out_name = os.path.join(optimise_setting["out_path"], "tmp", "merged_" + str(chunk[0]) + "_" + str(chunk[-1]) + ".tif")
     with rio.open(out_name, "w", **optimise_setting["meta"]) as dest:
         dest.write(merged_array)
+    print(" --> Merge maps for chunk " + str(chunk[0]) + "_" + str(chunk[-1]) + "...DONE")
     return out_name
 # ----------------------------------------------------------------------------
 # Call script from external library
 if __name__ == "__main__":
     sys.stdout.flush()
+    set_start_method('spawn', force=True)
     main()
 # ----------------------------------------------------------------------------------------------------------------------
 
