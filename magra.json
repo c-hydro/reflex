@@ -85,8 +85,13 @@
     },
     "multiprocessing": {
       "enable": true,
+      "max_cores": 30
+    },
+    "merging_maps":{
+      "__comment__": "WARNING! Multiprocessing merge can be very resource requiring for big domains!",
+      "multiprocessing_enabled": false,
       "max_cores": 2,
-      "chunk_size": 200
+      "max_maps_opened_together": 50
     }
   }
 }
