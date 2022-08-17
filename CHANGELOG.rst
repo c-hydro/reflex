@@ -1,7 +1,15 @@
 =========
 Changelog
 =========
-
+Version 2.0.2 [2022-08-11]
+**************************
+**reflex_step2_static_preprocessing.py**
+    - Fixed procedure for concentration time estimation
+**reflex_step3_hand.py**
+    - Review of the multiprocessing routine
+    - Add check for missing hand maps
+STEP 4: **reflex_step4_flood_mapping.py**
+    - Review of the multiprocessing and of the merging routine
 Version 2.0.0 [2022-04-06]
 **************************
 GLOBAL: **revision**
