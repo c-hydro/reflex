@@ -223,7 +223,7 @@ def main():
         missing_hand = []
         attempt_no = 0
         mask_type = "ext_ce"
-        missing_hand = check_missing_hands(streams_in, missing_hand, mask_type, hand_settings)
+        missing_hand = check_missing_hands(streams_in["stream"].values, missing_hand, mask_type, hand_settings)
 
         if len(missing_hand) == 0:
             logging.info(" --> All the maps have been correctly produced...")
