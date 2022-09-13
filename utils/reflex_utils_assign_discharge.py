@@ -73,6 +73,12 @@ def main():
     # Time algorithm information
     start_time = time.time()
 
+    # Read discharge values
+    col_names = ["Q" + str(i) for i in data_settings["discharge"]["T_vals"]]
+    discharge_vals = pd.read_csv(data_settings["discharge"]["file"], sep=data_settings["discharge"]["sep"], index_col=0,
+                                 usecols=[data_settings["discharge"]["index_col"]] + data_settings["discharge"][
+                                     "q_cols"])
+
     # Manage hydro features
     logging.info(" --> Manage hydrological basins and network...")
     with rxr.open_rasterio(settings_path_filled["basins_hydro_file"]) as raster:
@@ -89,6 +95,11 @@ def main():
         basin_hydro = gpd.GeoDataFrame(list_pop, crs=crs).to_crs(epsg=4326)
         basin_hydro = basin_hydro.dissolve(by='bas_cd', as_index=False)
         accum = rxr.open_rasterio(settings_path_filled["basin_hydro_area"]).reindex_like(raster, method="nearest")
+
+        if data_settings["flags"]["drop_all_zeroes_quantiles"]:
+            allzeroes_areas = discharge_vals.index[np.nansum(discharge_vals.values, axis=1) == 0]
+            basin_hydro = basin_hydro.loc[basin_hydro["bas_cd"].isin(allzeroes_areas.tolist()) == False]
+
         basin_hydro_centroid = gpd.GeoDataFrame(geometry=basin_hydro.centroid)
         basin_hydro_centroid["area_skm"] = -9999.0
 
@@ -125,36 +136,74 @@ def main():
     logging.info(" --> Manage reflex basins and network...DONE")
     # -------------------------------------------------------------------------------------
 
-    # -------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------
+    from copy import deepcopy
+    input_values = deepcopy(basin_reflex_centroid.index)
+    out_df = pd.DataFrame(index=input_values, columns=["near_bas", "diff_facc", "dist_km"])
+
+    max_attempts = data_settings["algorithm"]["max_attempts"]
+    k_neighbors = data_settings["algorithm"]["number_of_neighbours"]
+    attempt = 1
+
     # Manage reflex features
-    logging.info(" --> Assign hydrological and hydraulic network...")
-    in_pts = [(x,y) for x,y in zip(basin_reflex_centroid.geometry.x , basin_reflex_centroid.geometry.y)]
-    qry_pts = [(x,y) for x,y in zip(basin_hydro_centroid.geometry.x , basin_hydro_centroid.geometry.y)]
+    while len(input_values)>0 and attempt <= max_attempts:
+        logging.info(" --> Assign hydrological and hydraulic network... Attempt: " + str(attempt))
+        in_pts = [(x,y) for x,y in zip(basin_reflex_centroid.loc[input_values].geometry.x , basin_reflex_centroid.loc[input_values].geometry.y)]
+        qry_pts = [(x,y) for x,y in zip(basin_hydro_centroid.geometry.x , basin_hydro_centroid.geometry.y)]
 
-    tab_close, tab_dist = get_nearest(in_pts, qry_pts, k_neighbors=data_settings["algorithm"]["number_of_neighbours"])
+        tab_close, tab_dist = get_nearest(in_pts, qry_pts, k_neighbors=k_neighbors)
 
-    out_df = pd.DataFrame(index=basin_reflex_centroid.index, columns=["near_bas","diff_facc","dist_km"])
+        for i_row,i in enumerate(input_values):
+            logging.info(" ---> Compute stream " + str(i))
+            nearest_indeces = tab_close[i_row,:]
+            nearest_distances = tab_dist[i_row,:]
+            diff_flow_acc_nearest = np.abs(basin_reflex_centroid.loc[i,"area_skm"] - basin_hydro_centroid.loc[nearest_indeces, "area_skm"])/basin_reflex_centroid.loc[i,"area_skm"]
+            out_df.loc[i,"near_bas"]= basin_hydro_centroid.loc[diff_flow_acc_nearest.idxmin(), "bas_cd"]
+            out_df.loc[i,"diff_facc"] = diff_flow_acc_nearest.min()
+            out_df.loc[i,"dist_km"] = nearest_distances[nearest_indeces==diff_flow_acc_nearest.idxmin()][0]
+        logging.info(" --> Assign hydrological and hydraulic network... Attempt: " + str(attempt) + " DONE")
 
-    for i_row,i in enumerate(out_df.index):
-        logging.info(" ---> Compute stream " + str(i))
-        nearest_indeces = tab_close[i_row,:]
-        nearest_distances = tab_dist[i_row,:]
-        diff_flow_acc_nearest = np.abs(basin_reflex_centroid.loc[i,"area_skm"] - basin_hydro_centroid.loc[nearest_indeces, "area_skm"])/basin_reflex_centroid.loc[i,"area_skm"]
-        out_df.loc[i,"near_bas"]= basin_hydro_centroid.loc[diff_flow_acc_nearest.idxmin(), "bas_cd"]
-        out_df.loc[i,"diff_facc"] = diff_flow_acc_nearest.min()
-        out_df.loc[i,"dist_km"] = nearest_distances[nearest_indeces==diff_flow_acc_nearest.idxmin()][0]
-    logging.info(" --> Assign hydrological and hydraulic network...DONE")
+        input_values = out_df.loc[out_df["diff_facc"].values > data_settings["algorithm"]["diff_flowacc_accept"]].index
+        attempt = attempt+1
+        k_neighbors =  k_neighbors * 2
+
+    if len(input_values) > 0:
+        out_df.loc[input_values] = [np.nan, np.nan, np.nan]
+        logging.warning("WARNING! " + str(len(input_values)) + " streams have not been assigned")
+
+    # Manage reflex features
+    #logging.info(" --> Assign hydrological and hydraulic network...")
+    #in_pts = [(x, y) for x, y in zip(basin_reflex_centroid.geometry.x, basin_reflex_centroid.geometry.y)]
+    #qry_pts = [(x, y) for x, y in zip(basin_hydro_centroid.geometry.x, basin_hydro_centroid.geometry.y)]
+
+    #tab_close, tab_dist = get_nearest(in_pts, qry_pts, k_neighbors=data_settings["algorithm"]["number_of_neighbours"])
+
+    #out_df = pd.DataFrame(index=basin_reflex_centroid.index, columns=["near_bas", "diff_facc", "dist_km"])
+
+    #for i_row, i in enumerate(out_df.index):
+    #    logging.info(" ---> Compute stream " + str(i))
+    #    nearest_indeces = tab_close[i_row, :]
+    #    nearest_distances = tab_dist[i_row, :]
+    #    diff_flow_acc_nearest = np.abs(
+    #        basin_reflex_centroid.loc[i, "area_skm"] - basin_hydro_centroid.loc[nearest_indeces, "area_skm"]) / \
+    #                            basin_reflex_centroid.loc[i, "area_skm"]
+    #    out_df.loc[i, "near_bas"] = basin_hydro_centroid.loc[diff_flow_acc_nearest.idxmin(), "bas_cd"]
+    #    out_df.loc[i, "diff_facc"] = diff_flow_acc_nearest.min()
+    #    out_df.loc[i, "dist_km"] = nearest_distances[nearest_indeces == diff_flow_acc_nearest.idxmin()][0]
+    #logging.info(" --> Assign hydrological and hydraulic network...DONE")
     # -------------------------------------------------------------------------------------
 
     # -------------------------------------------------------------------------------------
     # Prepare output
     out_stream_reflex = stream_reflex.copy()
-    col_names = ["Q" + str(i) for i in data_settings["discharge"]["T_vals"]]
-    discharge_vals = pd.read_csv(data_settings["discharge"]["file"], sep=data_settings["discharge"]["sep"], index_col=0, usecols=[data_settings["discharge"]["index_col"]] + data_settings["discharge"]["q_cols"])
 
     for i_row in out_stream_reflex.index.values:
         stream = out_stream_reflex.loc[i_row, "stream"]
-        out_stream_reflex.loc[i_row, col_names] = discharge_vals.loc[out_df.loc[stream, "near_bas"]].values
+        near_stream = out_df.loc[stream, "near_bas"]
+        if not np.isnan(near_stream):
+            out_stream_reflex.loc[i_row, col_names] = discharge_vals.loc[near_stream].values
+        else:
+            out_stream_reflex.loc[i_row, col_names] = -9999
 
     if not "Q0" in col_names:
         out_stream_reflex["Q0"] = 0
@@ -163,7 +212,6 @@ def main():
     out_df.to_csv(os.path.join(settings_path_filled["output_folder"], domain + "_assigned_stats.csv"))
     out_stream_reflex[["stream"] + col_names].to_csv(os.path.join(settings_path_filled["output_folder"], domain + "_assigned.csv"), index=False)
     logging.info(" --> Assign hydrological and hydraulic network...DONE")
-
 
     if data_settings["flags"]["clear_ancillary"]:
         os.system("rm " + os.path.join(settings_path_filled["ancillary_folder"],'*'))

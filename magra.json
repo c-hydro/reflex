@@ -79,6 +79,7 @@
     "return_period": 100,
     "minimum_volume_included": 1000,
     "roughness_coefficient":0.06,
+    "minimum_valid_slope": 0.0001,
     "optimization": {
       "max_water_depth": 15,
       "min_water_depth": 0.1
