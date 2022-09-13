@@ -16,6 +16,7 @@ General command line:
 Version(s):
 20190220 (1.0.0) --> Beta release
 20220406 (2.0.0) --> Full revision
+20220913 (2.0.1) --> Add check on channel gradient (GRASS GIS bug for gradients<10E-06)
 """
 # -------------------------------------------------------------------------------------
 
@@ -154,7 +155,13 @@ def main():
     # Remove streams with volume below a treshold
     stream_gdf["V0"].values[stream_gdf["V0"].values is None] = -1
     stream_gdf["V0"].values[np.isnan(stream_gdf["V0"].values)] = -1
+    stream_gdf["V0"].values[np.isnan(stream_gdf["V0"].values)] = -1
+
     stream_gdf = stream_gdf.drop(stream_gdf[stream_gdf["V0"].values < runoff_volume_min].index)
+
+    # Recompute gradient
+    stream_gdf["gradient"] = stream_gdf["elev_drop"]/stream_gdf["lenght"]
+    stream_gdf["gradient"].values[stream_gdf["gradient"].values < (10 ** -4)] = 10 ** -4
 
     stream_ids = stream_gdf["stream"]
 

@@ -9,8 +9,8 @@ Author(s):     Mauro Arcorace (mauro.arcorace@cimafoundation.org)
                Giulia Bruno (giulia.bruno@cimafoundation.org)
                Alessia Matanò
                Andrea Libertino (andrea.libertino@cimafoundation.org)
-Date:          '20220726'
-Version:       '2.0.1'
+Date:          '20220913'
+Version:       '2.0.2'
 """
 from scipy.optimize import minimize
 from numpy.random import rand
@@ -64,7 +64,7 @@ def optimise_volume(stream_id, optimise_setting, d):
     opt_function = partial(optimize_flood_depth, hand_map.squeeze().values, stream_row["V0"].values, optimise_setting["areacell_m"])
 
     # perform the l-bfgs-b algorithm search and draw flood map
-    h_opt0 = minimize(opt_function, h_first_attempt[0], bounds=[(r_min,r_max)], method='Powell')["x"]
+    h_opt0 = minimize(opt_function, h_first_attempt[0], bounds=[(r_min,r_max)], method='L-BFGS-B')["x"]
     flood_extent = draw_flood_map(hand_map, h_opt0)
 
     print(" ---> Compute transit time...")
@@ -76,7 +76,11 @@ def optimise_volume(stream_id, optimise_setting, d):
     if v_i > 0:
         t_ti = int(stream_row["str_len_km"] * (10 ** 3)  / v_i)
     else:
-        t_ti = 0
+        t_ti = +np.Inf
+
+    # Transit time should be minor than concentration time
+    if t_ti >= stream_row["tconc"].values:
+        t_ti = stream_row["tconc"].values
 
     # Rescale runoff volume based on Tc-Tt (considers both the case of trapezoidal and triangular shapes due to the cut)
     if stream_row["Q_p_t"].values - t_ti * math.tan(stream_row["slope_hydrograph"].values) < 0:
@@ -84,8 +88,7 @@ def optimise_volume(stream_id, optimise_setting, d):
         vol_scaled = (stream_row["Q_p_t"].values ** 2) / (2 * math.tan(stream_row["slope_hydrograph"].values))
     else:
         # Trapezoidal
-        vol_scaled = ((stream_row["Q_p_t"].values + (
-                    stream_row["Q_p_t"].values - (t_ti * math.tan(stream_row["slope_hydrograph"].values)))) * t_ti) / 2
+        vol_scaled = ((stream_row["Q_p_t"].values + (stream_row["Q_p_t"].values - (t_ti * math.tan(stream_row["slope_hydrograph"].values)))) * t_ti) / 2
 
     opt_function = partial(optimize_flood_depth, hand_map.squeeze().values, vol_scaled, optimise_setting["areacell_m"])
     f_opt = minimize(opt_function, h_opt0, bounds=[(r_min,r_max)], method='L-BFGS-B')
