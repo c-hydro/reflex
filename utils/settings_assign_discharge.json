@@ -10,10 +10,10 @@
     "diff_flowacc_accept": 0.2
   },
   "domain": {
-    "name": "fiji"
+    "name": "fiji_SSP585_IPSL_CM6A_LR__2061_2100"
   },
   "discharge": {
-    "file": "/home/andrea/CIMA/PROJECT_various/fiji_vanatu/quantili_fiji.txt",
+    "file": "/home/andrea/CIMA/PROJECT_various/fiji_vanatu/quantili_fiji_SSP585_IPSL_CM6A_LR__2061_2100.txt",
     "sep": " ",
     "index_col": 0,
     "q_cols": [3,4,5,6,7,8,9,10,11,12,13,14],

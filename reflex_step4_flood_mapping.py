@@ -9,14 +9,15 @@ __author__ =
         'Valerio Basso,
         'Alessia Matanò,
         'Andrea Libertino (andrea.libertino@cimafoundation.org',
-        'Lorenzo Alfieri (lorenzo.alfieri @cimafoundation.org'
+        'Lorenzo Alfieri (lorenzo.alfieri@cimafoundation.org'
+        'Simone Gabellani (simone.gabellani@cimafoundation.org'
 __library__ = 'REFlEx'
 General command line:
 ### python reflex_step4_flood_mapping.py -log_file "/path/to/log.txt" -settings_file "settings.json" -base_path "/path/to/base_folder" (-volumes_file "/path/to/file.csv" -rp "10")
 Version(s):
 20190220 (1.0.0) --> Beta release
 20220406 (2.0.0) --> Full revision
-20220913 (2.0.1) --> Add check on channel gradient (GRASS GIS bug for gradients<10E-06)
+20220913 (2.0.2) --> Add check on channel gradient (GRASS GIS bug for gradients<10E-06)
 """
 # -------------------------------------------------------------------------------------
 
@@ -46,8 +47,8 @@ from numba import config
 # -------------------------------------------------------------------------------------
 # Algorithm information
 alg_name = 'REFlEx - STEP 4 - Flood mapping'
-alg_version = '2.0.0'
-alg_release = '2022-04-06'
+alg_version = '2.0.2'
+alg_release = '2022-09-13'
 # Algorithm parameter(s)
 time_format = '%Y%m%d%H%M'
 
