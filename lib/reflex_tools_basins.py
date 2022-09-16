@@ -8,8 +8,8 @@ Author(s):     Mauro Arcorace (mauro.arcorace@cimafoundation.org)
                Giulia Bruno (giulia.bruno@cimafoundation.org)
                Alessia Matanò
                Andrea Libertino (andrea.libertino@cimafoundation.org)
-Date:          '20220808'
-Version:       '2.0.2'
+Date:          '20220916'
+Version:       '2.0.3'
 """
 ########################################################################################################################
 # Import libraries
@@ -46,8 +46,12 @@ def create_masks(stream, masks_settings, d):
     streams_gdf_mbid = streams_gdf.loc[streams_gdf['MBID_new'] == iMBID].copy()
 
     # find all upstreams
-    iUpstream = Pfaf_find_upstream(pfaf, masks_settings["pfaf_limits"][iMBID][1])
-    subset_Upstream = streams_gdf_mbid.loc[(streams_gdf_mbid['pfA'] >= pfaf) & (streams_gdf_mbid['pfA'] <= iUpstream)]
+    iUpstream, included = Pfaf_find_upstream(pfaf, masks_settings["pfaf_limits"][iMBID][1])
+
+    if included is True:
+        subset_Upstream = streams_gdf_mbid.loc[(streams_gdf_mbid['pfA'] >= pfaf) & (streams_gdf_mbid['pfA'] <= iUpstream)]
+    else:
+        subset_Upstream = streams_gdf_mbid.loc[(streams_gdf_mbid['pfA'] >= pfaf) & (streams_gdf_mbid['pfA'] < iUpstream)]
 
     # find up to 2 next upstreams
     tmp_Upstream_new, head_basins = Pfaf_find_Nextupstreams(pfaf, subset_Upstream, row, stream, head_basins, streams_gdf_mbid)

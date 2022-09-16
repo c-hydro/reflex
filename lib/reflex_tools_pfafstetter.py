@@ -8,8 +8,8 @@ Author(s):     Mauro Arcorace (mauro.arcorace@cimafoundation.org)
                Giulia Bruno (giulia.bruno@cimafoundation.org)
                Alessia Matanò
                Andrea Libertino (andrea.libertino@cimafoundation.org)
-Date:          '20220404'
-Version:       '2.0.0'
+Date:          '20220916'
+Version:       '2.0.1'
 """
 ########################################################################################################################
 # Import libraries
@@ -74,8 +74,7 @@ def assign_pfafstetter_code (sPathInput, sDomain, input_epsg, in_filename, iNum_
     # Pfafstetter labelling
     gdf_orig = gdf_orig.assign(stream_d=gdf_orig['stream'])
     gdf_orig = gdf_orig.dissolve(by='stream_d')
-    gdf_orig.loc[~gdf_orig['next_strea'].isin(gdf_orig
-                                                  ['stream']), 'next_strea'] = -1  # set as outlet streams whose next streams are not in the gpkg (points and not lines)
+    gdf_orig.loc[~gdf_orig['next_strea'].isin(gdf_orig['stream']), 'next_strea'] = -1  # set as outlet streams whose next streams are not in the gpkg (points and not lines)
     gdf_orig['pfA'] = np.nan  # add blank column to geodataframe
     gdf_orig['FiscalCode'] = np.nan
     gdf_orig['MBID_new'] = np.nan
@@ -305,15 +304,19 @@ def Pfaf_find_upstream(pfA, maxpfA):
                 # print('basin')
                 if 'uplim' not in locals():
                     uplim = pfA
+                    included = True
+                included = True
                 break
             else:
                 # print('interbasin')
                 if i == 0:
                     uplim = maxpfA
+                    included = True
                 else:
                     uplim = int(str(int(str(pfA)[0:i]) + 1) + '0' * (len(str(pfA)) - i))
+                    included = False
 
-    return uplim
+    return uplim, included
 
 # ----------------------------------------------------------------------------------------------------------------------
 

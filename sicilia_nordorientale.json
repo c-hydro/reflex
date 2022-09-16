@@ -1,0 +1,96 @@
+{
+  "algorithm": {
+    "version": "2.0",
+    "grass_bin": "grass"
+  },
+  "domain": {
+    "name": "sicilia_nordorientale",
+    "res_deg": 0.00005,
+    "res_km": 0.005,
+    "res_str": "5m",
+    "source_epsg": 4326,
+    "target_epsg": 4326,
+    "min_nonnull_value": -9000
+  },
+  "step_0": {
+    "dir_name": "{base_path}/dem_conditioning",
+    "preprocessing": {
+      "hydrodem_remove_sink": false,
+      "richdem_eps_filling": true,
+      "pysheds_pit_remove_and_solve_flats": true
+    },
+    "stream_burning": {
+      "__comment__": "methods: A for simplified, B for full, none for deactivate",
+      "burning_method": "A",
+      "A": {
+        "carve_depth_m": 30
+      },
+      "B": {
+        "buffer_distance_cells": 30,
+        "filtering_magnitude": 1
+      }
+    }
+  },
+  "step_1": {
+    "__comment__": "methods available: stream: d8 ; hand: d8 - dinf",
+    "dir_name": "{base_path}/hydro_derivatives",
+    "stream_definition_method": "d8",
+    "hand_definition_method": "dinf",
+    "flow_accumulation_threshold_cells": 100000
+  },
+  "step_2": {
+    "dir_name": "{base_path}/data_static",
+    "max_attempts_make_mask": 3,
+    "buffer_for_coastal_expansion_cells": 20,
+    "concentration_time": {
+      "kirpich": false,
+      "california_culvert_practice": false,
+      "ventura": false,
+      "pezzoli": false,
+      "giandotti": true,
+      "pasini": false,
+      "siccardi": false
+    },
+    "multiprocessing": {
+      "enable": false,
+      "max_cores": 2,
+      "chunk_size": 300
+    }
+  },
+  "step_3": {
+    "dir_name": "{base_path}/hand",
+    "max_attempts_make_hand": 5,
+    "coastal_expansion": {
+      "enable": true,
+      "gradient_limit": -9999,
+      "head_loss_cm_m": 0.02,
+      "slope_percentile": 0.001
+    },
+    "multiprocessing": {
+      "enable": true,
+      "max_cores": 30,
+      "chunk_size": 300
+    }
+  },
+  "step_4": {
+    "dir_name": "{base_path}/flood",
+    "__comment__" : "volume_file_path and return_period can be also provided as arguments -volumes_file -rp",
+    "volume_file_path": "/home/reflex/data/ISMEA/reflex/sicilia_orientale/input/discharge_sicilia_orientale.csv",
+    "return_period": 100,
+    "minimum_volume_included": 5,
+    "roughness_coefficient":0.05,
+    "optimization": {
+      "max_water_depth": 20,
+      "min_water_depth": 0.0001
+    },
+    "multiprocessing": {
+      "enable": true,
+      "max_cores": 30
+    },
+    "merging_maps":{
+      "multiprocessing_enabled": false,
+      "max_cores": 2,
+      "max_maps_opened_together": 50
+      }
+  }
+}
