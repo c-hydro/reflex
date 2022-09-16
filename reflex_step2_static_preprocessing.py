@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 REFlEx - Step2 - Static data preprocessing
-__date__ = '20220808'
+__date__ = '20220916'
 __version__ = '2.0.2'
 __author__ =
         'Mauro Arcorace' (mauro.arcorace@cimafoundation.org',
@@ -21,7 +21,8 @@ Version(s):
                                      Automatic selection of best epsg for proj
                                      Parallel implementation
 20220726 (2.0.1) --> Fix basin delineation procedure
-20220808 (2.0.2) --> Optimized multiprocessing
+20220916 (2.0.2) --> Optimized multiprocessing
+                     Fixed pfafstetter codification
 """
 # -------------------------------------------------------------------------------------
 
@@ -29,7 +30,7 @@ Version(s):
 # Algorithm information
 alg_name = 'REFlEx - STEP 2 - Static Data Processing'
 alg_version = '2.0.2'
-alg_release = '2022-08-08'
+alg_release = '2022-09-16'
 # Algorithm parameter(s)
 time_format = '%Y%m%d%H%M'
 # -------------------------------------------------------------------------------------
@@ -271,7 +272,7 @@ def main():
 
     if len(missing_masks) > 0:
         logging.error(" --> Some masks has not been produced after " + str(
-            attempt_no) + " attempts! Verify problems in streams: " + ",".join(str(missing_masks)))
+            attempt_no) + " attempts! Verify problems in streams: " + ",".join([str(i) for i in missing_masks]))
         raise RuntimeError
     # ------------------------------
 
