@@ -304,19 +304,15 @@ def Pfaf_find_upstream(pfA, maxpfA):
                 # print('basin')
                 if 'uplim' not in locals():
                     uplim = pfA
-                    included = True
-                included = True
                 break
             else:
                 # print('interbasin')
                 if i == 0:
                     uplim = maxpfA
-                    included = True
                 else:
                     uplim = int(str(int(str(pfA)[0:i]) + 1) + '0' * (len(str(pfA)) - i))
-                    included = False
 
-    return uplim, included
+    return uplim
 
 # ----------------------------------------------------------------------------------------------------------------------
 

@@ -46,12 +46,9 @@ def create_masks(stream, masks_settings, d):
     streams_gdf_mbid = streams_gdf.loc[streams_gdf['MBID_new'] == iMBID].copy()
 
     # find all upstreams
-    iUpstream, included = Pfaf_find_upstream(pfaf, masks_settings["pfaf_limits"][iMBID][1])
+    iUpstream = Pfaf_find_upstream(pfaf, masks_settings["pfaf_limits"][iMBID][1])
+    subset_Upstream = streams_gdf_mbid.loc[(streams_gdf_mbid['pfA'] >= pfaf) & (streams_gdf_mbid['pfA'] <= iUpstream)]
 
-    if included is True:
-        subset_Upstream = streams_gdf_mbid.loc[(streams_gdf_mbid['pfA'] >= pfaf) & (streams_gdf_mbid['pfA'] <= iUpstream)]
-    else:
-        subset_Upstream = streams_gdf_mbid.loc[(streams_gdf_mbid['pfA'] >= pfaf) & (streams_gdf_mbid['pfA'] < iUpstream)]
 
     # find up to 2 next upstreams
     tmp_Upstream_new, head_basins = Pfaf_find_Nextupstreams(pfaf, subset_Upstream, row, stream, head_basins, streams_gdf_mbid)
@@ -67,7 +64,7 @@ def create_masks(stream, masks_settings, d):
 
     # list of pfaf(s) of interest
     streams = {}
-    streams["all_up"] = [i for i in subset_Upstream["stream"].values]
+    streams["all_up"] = masks_settings["upstream_basins"][stream]   #[i for i in subset_Upstream["stream"].values]
     streams["up"] = [i for i in tmp_Upstream_new["stream"].values]
     streams["down"] = [i for i in pd.concat((DownStreamLow_sel, DownStreamUp_sel))["stream"] if i not in streams["up"]]
 
