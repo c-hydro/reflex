@@ -231,6 +231,23 @@ def main():
 
     os.makedirs(masks_settings["masks_folder"], exist_ok=True)
 
+
+    # Find upstream basins
+    shreve_unique = np.unique(streams_gdf["shreve"].values)
+
+    upst_basin = {}
+
+    for shreve in shreve_unique:
+        sub_lev = streams_gdf.loc[streams_gdf["shreve"].values == shreve]
+        for _, row in sub_lev.iterrows():
+            upst_basin[row["stream"]] = [row["stream"]]
+            if row["prev_str01"] > 0:
+                upst_basin[row["stream"]] = upst_basin[row["stream"]] + upst_basin[row["prev_str01"]]
+            if row["prev_str02"] > 0:
+                upst_basin[row["stream"]] = upst_basin[row["stream"]] + upst_basin[row["prev_str02"]]
+
+    masks_settings["upstream_basins"] = upst_basin
+
     manager = Manager()
     d = manager.dict()
     d["streams_gdf"] = streams_gdf
