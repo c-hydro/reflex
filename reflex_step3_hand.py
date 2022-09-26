@@ -110,6 +110,10 @@ def main():
         produce_only_used_hand_ce = data_settings["step_3"]["coastal_expansion"]["produce_only_used_hand_ce"]
     except:
         produce_only_used_hand_ce = True
+    try:
+        manual_ce = data_settings["step_3"]["coastal_expansion"]["manual_activation"]
+    except:
+        manual_ce = False
 
     if data_settings["step_3"]["multiprocessing"]["enable"]:
         process_max = data_settings["step_3"]["multiprocessing"]["max_cores"]
@@ -143,6 +147,9 @@ def main():
     }
     input_files = fill_input_files(input_files_raw, input_dict)
     streams_gdf = gpd.read_file(input_files["shp_streams"])
+
+    if manual_ce is True and "manual_ce" not in streams_gdf.columns:
+        raise ValueError("ERROR! In coastal expansion manual mode a column named 'manual_ce' should be included in the stream shapefile!")
 
     hand_settings = {"input_files":input_files, "hand_method": drain_method_hand, "output_folder": output_folder,
                      "coastal_expansion_gradient_limit": gradient_limit, "head_loss": JL, "z_percentile": in_str_elev_perc_value,
@@ -205,7 +212,10 @@ def main():
     # Compute hands ce
     if coastal_expansion_active:
         if produce_only_used_hand_ce:
-            streams_in = streams_gdf.loc[(streams_gdf["next_strea"] == -1) | (streams_gdf["gradient"] <= gradient_limit)]
+            if not manual_ce:
+                streams_in = streams_gdf.loc[(streams_gdf["next_strea"] == -1) | (streams_gdf["gradient"] <= gradient_limit)]
+            else:
+                streams_in = streams_gdf.loc[streams_gdf["manual_ce"] == 1]
         else:
             streams_in = streams_gdf
         logging.info("--> Compute hand maps with coastal expansion...")
@@ -246,7 +256,7 @@ def main():
                 attempt_no = attempt_no + 1
             if len(missing_hand) > 0:
                 logging.error(" --> Some hand maps has not been produced after " + str(
-                    attempt_no) + " attempts! Verify problems in streams: " + ",".join(str(missing_hand)))
+                    attempt_no) + " attempts! Verify problems in streams: " + ",".join([str(i) for i in missing_hand]))
                 raise RuntimeError
         logging.info("--> Verify presence of missing hand maps...DONE")
     # -------------------------------------------------------------------------------------

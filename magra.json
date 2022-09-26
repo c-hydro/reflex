@@ -64,7 +64,9 @@
       "enable": true,
       "gradient_limit": 0.0003,
       "head_loss_cm_m": 0.2,
-      "slope_percentile": 25
+      "slope_percentile": 25,
+      "__comment__": "Next line deactivate the automatic activation and activate c.e. according to the manual_ce = 1 field",
+      "manual_activation":  true
     },
     "multiprocessing": {
       "enable": true,

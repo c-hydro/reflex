@@ -270,54 +270,52 @@ def compute_hand_ce(stream_id, hand_settings, d):
 
     mask_type = "ext_ce"
     # if the stream is an outlet or the slope below a slope limit
-    if stream_row.next_strea.values[0] == -1 or stream_row.gradient.values[0] <= hand_settings["coastal_expansion_gradient_limit"]:
-        print(" --> Compute stream " + str(stream_id))
-        # Declare file names
-        hand_out_file = os.path.join(hand_settings["output_folder"], mask_type, "hand_" + hand_settings["hand_method"] + "_" + mask_type + "_" + str(stream_id) + ".tif")
-        stream_out_file = os.path.join(hand_settings["output_folder"], mask_type, "stream_" + mask_type + "_" + str(stream_id) + ".tif")
 
-        # Import extended mask and use if for import clipped DEM and stream
-        basin_mask = gpd.read_file(hand_settings["input_files"]["shp_masks"].format(stream=str(stream_id)))
-        basin_mask_shp = basin_mask.loc[basin_mask["mask_type"] == mask_type]
+    print(" --> Compute stream " + str(stream_id))
+    # Declare file names
+    hand_out_file = os.path.join(hand_settings["output_folder"], mask_type, "hand_" + hand_settings["hand_method"] + "_" + mask_type + "_" + str(stream_id) + ".tif")
+    stream_out_file = os.path.join(hand_settings["output_folder"], mask_type, "stream_" + mask_type + "_" + str(stream_id) + ".tif")
 
-        dem = rxr.open_rasterio(hand_settings["input_files"]["rst_dem"], masked=True).rio.clip(basin_mask_shp.geometry, from_disk=True)
-        stream = rxr.open_rasterio(hand_settings["input_files"]["rst_stream"], masked=True).rio.clip(basin_mask_shp.geometry, from_disk=True)
-        hand = rxr.open_rasterio(os.path.join(hand_settings["output_folder"], "ext_no_ce", "hand_" + hand_settings["hand_method"] + "_ext_no_ce_" + str(stream_id) + ".tif"), masked=True).rio.clip(basin_mask_shp.geometry, from_disk=True)
+    # Import extended mask and use if for import clipped DEM and stream
+    basin_mask = gpd.read_file(hand_settings["input_files"]["shp_masks"].format(stream=str(stream_id)))
+    basin_mask_shp = basin_mask.loc[basin_mask["mask_type"] == mask_type]
 
-        # Calculate cost matrix: distance from current stream limited to the distance set in the stream file
-        # First option buffer only up to the limit distance from the reference basin
-        # cost = xrspatial.proximity(raster = stream.squeeze(), target_values = [stream_id], distance_metric='GREAT_CIRCLE', max_distance=stream_row["distance"].values[0])
-        cost = xrspatial.proximity(raster=stream.squeeze(), target_values=[stream_id], distance_metric='GREAT_CIRCLE')
-        cost = cost.reindex({"x": dem.x.values, "y": dem.y.values}, method='nearest', fill_value=np.nan, tolerance=np.abs(hand.rio.resolution()[0]))
+    dem = rxr.open_rasterio(hand_settings["input_files"]["rst_dem"], masked=True).rio.clip(basin_mask_shp.geometry, from_disk=True)
+    stream = rxr.open_rasterio(hand_settings["input_files"]["rst_stream"], masked=True).rio.clip(basin_mask_shp.geometry, from_disk=True)
+    hand = rxr.open_rasterio(os.path.join(hand_settings["output_folder"], "ext_no_ce", "hand_" + hand_settings["hand_method"] + "_ext_no_ce_" + str(stream_id) + ".tif"), masked=True).rio.clip(basin_mask_shp.geometry, from_disk=True)
 
-        # Calculate elevation percentile
-        z_p = np.nanpercentile(dem.values[stream.values==stream_id], hand_settings["z_percentile"])
+    # Calculate cost matrix: distance from current stream limited to the distance set in the stream file
+    # First option buffer only up to the limit distance from the reference basin
+    # cost = xrspatial.proximity(raster = stream.squeeze(), target_values = [stream_id], distance_metric='GREAT_CIRCLE', max_distance=stream_row["distance"].values[0])
+    cost = xrspatial.proximity(raster=stream.squeeze(), target_values=[stream_id], distance_metric='GREAT_CIRCLE')
+    cost = cost.reindex({"x": dem.x.values, "y": dem.y.values}, method='nearest', fill_value=np.nan, tolerance=np.abs(hand.rio.resolution()[0]))
 
-        # Compute extended DH: DEM - z_p + loss_matrix
-        hand_ext = 100 * dem.squeeze() - (100 * z_p) + cost * hand_settings["head_loss"]
+    # Calculate elevation percentile
+    z_p = np.nanpercentile(dem.values[stream.values==stream_id], hand_settings["z_percentile"])
 
-        hand_ext = xr.where(hand_ext<0,0,hand_ext)
-        if np.min(hand_ext) < 0:
-            min_hand_ext = np.min(hand_ext)
-        else:
-            min_hand_ext = 0
-        hand_ext = xr.where(hand_ext<0,hand_ext-min_hand_ext,hand_ext)
+    # Compute extended DH: DEM - z_p + loss_matrix
+    hand_ext = 100 * dem.squeeze() - (100 * z_p) + cost * hand_settings["head_loss"]
 
-        # Regrid hand on extended domain and merge the 2 maps
-        hand_ce = hand.reindex({"x": dem.x.values, "y": dem.y.values}, method='nearest', fill_value=np.nan, tolerance=np.abs(hand.rio.resolution()[0])).squeeze()
-
-        # Raw merge
-        hand_ce = xr.where(hand_ce.isnull(), hand_ext, hand_ce)
-
-        # Write output
-        xr.where(dem.squeeze().isnull(),np.nan,hand_ce).rio.write_nodata(-9999, inplace=True).rio.to_raster(hand_out_file)
-        cost.values[cost.values>0]=np.nan
-        cost = cost+1
-        cost.rio.write_nodata(-9999, inplace=True).rio.to_raster(stream_out_file)
-
-        print(" --> Compute stream " + str(stream_id) + " ...DONE!")
+    hand_ext = xr.where(hand_ext<0,0,hand_ext)
+    if np.min(hand_ext) < 0:
+        min_hand_ext = np.min(hand_ext)
     else:
-        print(" --> Stream " + str(stream_id) + "... SKIPPED!")
+        min_hand_ext = 0
+    hand_ext = xr.where(hand_ext<0,hand_ext-min_hand_ext,hand_ext)
+
+    # Regrid hand on extended domain and merge the 2 maps
+    hand_ce = hand.reindex({"x": dem.x.values, "y": dem.y.values}, method='nearest', fill_value=np.nan, tolerance=np.abs(hand.rio.resolution()[0])).squeeze()
+
+    # Raw merge
+    hand_ce = xr.where(hand_ce.isnull(), hand_ext, hand_ce)
+
+    # Write output
+    xr.where(dem.squeeze().isnull(),np.nan,hand_ce).rio.write_nodata(-9999, inplace=True).rio.to_raster(hand_out_file)
+    cost.values[cost.values>0]=np.nan
+    cost = cost+1
+    cost.rio.write_nodata(-9999, inplace=True).rio.to_raster(stream_out_file)
+
+    print(" --> Compute stream " + str(stream_id) + " ...DONE!")
 
     return
 # ----------------------------------------------------------------------------------------------------------------------
