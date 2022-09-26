@@ -101,6 +101,10 @@ def main():
     buffer_watershed_distance_cell = data_settings["step_2"]["buffer_for_coastal_expansion_cells"]
     coastal_expansion_active = data_settings["step_3"]["coastal_expansion"]["enable"]
     gradient_limit = data_settings["step_3"]["coastal_expansion"]["gradient_limit"]
+    try:
+        manual_ce = data_settings["step_3"]["coastal_expansion"]["manual_activation"]
+    except:
+        manual_ce = False
 
     # Step settings
     step0_dir_name = data_settings["step_0"]["dir_name"].replace("{base_path}", base_path)
@@ -146,6 +150,9 @@ def main():
     volume_table = pd.read_csv(discharge_file_name, sep=',', header=0, index_col='stream')
     stream_gdf = stream_gdf.join(volume_table, on='stream', rsuffix='_temp')
 
+    if manual_ce is True and "manual_ce" not in stream_gdf.columns:
+        raise ValueError("ERROR! In coastal expansion manual mode a column named 'manual_ce' should be included in the stream shapefile!")
+
     stream_gdf["V0"] = ((stream_gdf['Q' + str(return_period)] - stream_gdf['Q0']) * (stream_gdf['tconc']) / 2.).round(0)
 
     stream_gdf["Q_p_t"] = stream_gdf["Q" + str(return_period)] - stream_gdf["Q0"]
@@ -169,6 +176,7 @@ def main():
     optimise_setting["roughness_coeff"] = roughness_coeff
     optimise_setting["coastal_expansion_gradient_limit"] = gradient_limit
     optimise_setting["coastal_expansion_active"] = coastal_expansion_active
+    optimise_setting["coastal_expansion_manual"] = manual_ce
     optimise_setting["rst_hand"] = os.path.join(step3_dir_name,'rst','{mask_type}','hand_' + drain_method_hand + '_{mask_type}_{stream_id}.tif')
     optimise_setting["rst_stream"] = os.path.join(step3_dir_name, 'rst', '{mask_type}', 'stream_{mask_type}_{stream_id}.tif')
     optimise_setting["out_path"] = step4_dir_name
