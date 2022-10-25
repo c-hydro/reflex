@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """
 REFlEx - Step2 - Static data preprocessing
-__date__ = '20220916'
-__version__ = '2.0.2'
+__date__ = '20221025'
+__version__ = '2.0.3'
 __author__ =
         'Mauro Arcorace' (mauro.arcorace@cimafoundation.org',
         'Alessandro Masoero (alessandro.masoero@cimafoundation.org',
@@ -21,7 +21,7 @@ Version(s):
                                      Automatic selection of best epsg for proj
                                      Parallel implementation
 20220726 (2.0.1) --> Fix basin delineation procedure
-20220916 (2.0.2) --> Optimized multiprocessing
+20221025 (2.0.3) --> Optimized multiprocessing
                      Fixed pfafstetter codification
 """
 # -------------------------------------------------------------------------------------
@@ -29,8 +29,8 @@ Version(s):
 # -------------------------------------------------------------------------------------
 # Algorithm information
 alg_name = 'REFlEx - STEP 2 - Static Data Processing'
-alg_version = '2.0.2'
-alg_release = '2022-09-16'
+alg_version = '2.0.3'
+alg_release = '2022-10-35'
 # Algorithm parameter(s)
 time_format = '%Y%m%d%H%M'
 # -------------------------------------------------------------------------------------
@@ -236,17 +236,32 @@ def main():
     shreve_unique = np.unique(streams_gdf["shreve"].values)
 
     upst_basin = {}
+    stream_to_delete = []
 
     for shreve in shreve_unique:
         sub_lev = streams_gdf.loc[streams_gdf["shreve"].values == shreve]
         for _, row in sub_lev.iterrows():
             upst_basin[row["stream"]] = [row["stream"]]
             if row["prev_str01"] > 0:
-                upst_basin[row["stream"]] = upst_basin[row["stream"]] + upst_basin[row["prev_str01"]]
+                try:
+                    upst_basin[row["stream"]] = upst_basin[row["stream"]] + upst_basin[row["prev_str01"]]
+                except:
+                    stream_to_delete = stream_to_delete + [row["stream"]]
             if row["prev_str02"] > 0:
-                upst_basin[row["stream"]] = upst_basin[row["stream"]] + upst_basin[row["prev_str02"]]
+                try:
+                    upst_basin[row["stream"]] = upst_basin[row["stream"]] + upst_basin[row["prev_str02"]]
+                except:
+                    if not row["stream"] in stream_to_delete:
+                        stream_to_delete = stream_to_delete + [row["stream"]]
 
     masks_settings["upstream_basins"] = upst_basin
+
+    logging.warning(" --> WARNING! Streams " + ", ".join([str(i) for i in stream_to_delete]) + " have been deleted because upstream branches are missing!")
+
+    if len(stream_to_delete)>0:
+        streams_gdf = streams_gdf[~streams_gdf['stream'].isin(stream_to_delete)]
+        basin_gdf = basin_gdf[~basin_gdf['stream'].isin(stream_to_delete)]
+
 
     manager = Manager()
     d = manager.dict()
@@ -264,7 +279,7 @@ def main():
         exec_pool.join()
 
     missing_masks = []
-    for stream in stream_ids:
+    for stream in streams_gdf["stream"].values:
         if not os.path.isfile(os.path.join(masks_settings["masks_folder"], 'masks_shp_{}.shp'.format(stream))):
             missing_masks += [stream]
     attempt_no = 0

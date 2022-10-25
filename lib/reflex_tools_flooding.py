@@ -49,7 +49,7 @@ def optimise_volume(stream_id, optimise_setting, d):
 
     if optimise_setting["coastal_expansion_active"]:
         if optimise_setting["coastal_expansion_manual"]:
-            if stream_row["manual_ce"] == 1:
+            if stream_row.manual_ce.values[0] == 1:
                 hand_type = "ext_ce"
         elif stream_row.next_strea.values[0] == -1 or stream_row.gradient.values[0] <= optimise_setting["coastal_expansion_gradient_limit"]:
             hand_type = "ext_ce"

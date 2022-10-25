@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """
 REFlEx - Step4 - Flood mapping
-__date__ = '20220406'
-__version__ = '2.0.0'
+__date__ = '20221025'
+__version__ = '2.0.3'
 __author__ =
         'Mauro Arcorace' (mauro.arcorace@cimafoundation.org',
         'Alessandro Masoero (alessandro.masoero@cimafoundation.org',
@@ -18,6 +18,7 @@ Version(s):
 20190220 (1.0.0) --> Beta release
 20220406 (2.0.0) --> Full revision
 20220913 (2.0.2) --> Add check on channel gradient (GRASS GIS bug for gradients<10E-06)
+20221025 (2.0.3) --> Add possibility to manually activate coastal expansion
 """
 # -------------------------------------------------------------------------------------
 
@@ -47,8 +48,8 @@ from numba import config
 # -------------------------------------------------------------------------------------
 # Algorithm information
 alg_name = 'REFlEx - STEP 4 - Flood mapping'
-alg_version = '2.0.2'
-alg_release = '2022-09-13'
+alg_version = '2.0.3'
+alg_release = '2022-10-25'
 # Algorithm parameter(s)
 time_format = '%Y%m%d%H%M'
 

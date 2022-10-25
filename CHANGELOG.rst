@@ -1,6 +1,14 @@
 =========
 Changelog
 =========
+Version 2.0.2 [2022-10-25]
+**************************
+**reflex_step2_static_preprocessing.py**
+    - Bug fixes
+
+**reflex_step4_flood_mapping.py**
+    - Added the possibility to manually activate coastal expansion
+
 Version 2.0.2 [2022-08-11]
 **************************
 **reflex_step2_static_preprocessing.py**
