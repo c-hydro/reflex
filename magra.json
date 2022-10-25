@@ -77,7 +77,7 @@
   "step_4": {
     "dir_name": "{base_path}/flood",
     "__comment__" : "volume_file_path and return_period can be also provided as arguments -volumes_file -rp",
-    "volume_file_path": "/home/andrea/Desktop/CASE_MAGRA/input/VOL_MAGRA.csv",
+    "volume_file_path": "/home/andrea/CIMA/DEVELOPEMENT/REFLEX/CASE_MAGRA/input/VOL_MAGRA.csv",
     "return_period": 100,
     "minimum_volume_included": 1000,
     "roughness_coefficient":0.06,
