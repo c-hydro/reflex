@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """
 REFlEx - Step3 - HAND map computation
-__date__ = '20220808'
-__version__ = '2.0.2'
+__date__ = '20230101'
+__version__ = '2.0.3'
 __author__ =
         'Mauro Arcorace' (mauro.arcorace@cimafoundation.org',
         'Alessandro Masoero (alessandro.masoero@cimafoundation.org)',
@@ -17,6 +17,7 @@ Version(s):
 20220406 (2.0.0) --> Full revision - Use pysheds for HAND definition
                                      Parallel implementation
 20220808 (2.0.2) --> Optimized multiprocessing
+20220808 (2.0.3) --> Optimized singleprocessing for big domains
 """
 # -------------------------------------------------------------------------------------
 
@@ -39,10 +40,12 @@ from copy import deepcopy
 # -------------------------------------------------------------------------------------
 # Algorithm information
 alg_name = 'REFlEx - STEP 3 - Hand Map Computation'
-alg_version = '2.0.2'
-alg_release = '2022-08-08'
+alg_version = '2.0.3'
+alg_release = '2023-01-01'
 # Algorithm parameter(s)
 time_format = '%Y%m%d%H%M'
+
+
 # -------------------------------------------------------------------------------------
 
 # -------------------------------------------------------------------------------------
@@ -54,7 +57,7 @@ def main():
 
     # Set algorithm settings
     data_settings = read_file_json(config_file)
-    
+
     os.makedirs(os.path.dirname(alg_log), exist_ok=True)
     set_logging(logger_file=alg_log)
 
@@ -76,7 +79,7 @@ def main():
     # Path to executable and version
     script_ver = data_settings["algorithm"]["version"]
     grass_bin = data_settings["algorithm"]["grass_bin"]
-    
+
     # Domain and DEM info
     acp_x = data_settings["domain"]["name"].upper()
     domain_name = data_settings["domain"]["name"]
@@ -91,11 +94,11 @@ def main():
     drain_method_streams = data_settings["step_1"]["stream_definition_method"]
     drain_method_hand = data_settings["step_1"]["hand_definition_method"]
     buffer_watershed_distance_cell = data_settings["step_2"]["buffer_for_coastal_expansion_cells"]
-    
+
     # Step settings
-    step0_dir_name = data_settings["step_0"]["dir_name"].replace("{base_path}",base_path)
-    step1_dir_name = data_settings["step_1"]["dir_name"].replace("{base_path}",base_path)
-    step2_dir_name = data_settings["step_2"]["dir_name"].replace("{base_path}",base_path)
+    step0_dir_name = data_settings["step_0"]["dir_name"].replace("{base_path}", base_path)
+    step1_dir_name = data_settings["step_1"]["dir_name"].replace("{base_path}", base_path)
+    step2_dir_name = data_settings["step_2"]["dir_name"].replace("{base_path}", base_path)
     step3_dir_name = data_settings["step_3"]["dir_name"].replace("{base_path}", base_path)
     try:
         max_attempts = data_settings["step_3"]["max_attempts_make_hand"]
@@ -133,14 +136,15 @@ def main():
     code_start_time = time.time()
 
     output_folder = os.path.join(step3_dir_name, 'rst', "")
-    for mask_type in ["ext_no_ce","ext_ce"]:
-        output_folder_type = os.path.join(output_folder ,mask_type,"")
-        os.makedirs(output_folder_type, exist_ok = True)
+    for mask_type in ["ext_no_ce", "ext_ce"]:
+        output_folder_type = os.path.join(output_folder, mask_type, "")
+        os.makedirs(output_folder_type, exist_ok=True)
 
-    input_dict = {"domain": domain_name, "res": rrs, "dir_method": drain_method_hand, "dir_method_stream": drain_method_streams}
+    input_dict = {"domain": domain_name, "res": rrs, "dir_method": drain_method_hand,
+                  "dir_method_stream": drain_method_streams}
     input_files_raw = {
         "shp_streams": os.path.join(step2_dir_name, 'vct', 'v_{domain}_{res}_streams_features.shp'),
-        "shp_masks": os.path.join(step2_dir_name, 'vct', 'masks',  'masks_shp_{stream}.shp'),
+        "shp_masks": os.path.join(step2_dir_name, 'vct', 'masks', 'masks_shp_{stream}.shp'),
         "rst_pnt": os.path.join(step1_dir_name, 'rst', 'r_{domain}_{res}_{dir_method}_flow_dir.tif'),
         "rst_stream": os.path.join(step1_dir_name, 'rst', 'r_{domain}_{res}_{dir_method_stream}_streams.tif'),
         "rst_dem": os.path.join(step1_dir_name, 'rst', 'r_{domain}_{res}_dem.tif')
@@ -149,10 +153,12 @@ def main():
     streams_gdf = gpd.read_file(input_files["shp_streams"])
 
     if manual_ce is True and "manual_ce" not in streams_gdf.columns:
-        raise ValueError("ERROR! In coastal expansion manual mode a column named 'manual_ce' should be included in the stream shapefile!")
+        raise ValueError(
+            "ERROR! In coastal expansion manual mode a column named 'manual_ce' should be included in the stream shapefile!")
 
-    hand_settings = {"input_files":input_files, "hand_method": drain_method_hand, "output_folder": output_folder,
-                     "coastal_expansion_gradient_limit": gradient_limit, "head_loss": JL, "z_percentile": in_str_elev_perc_value,
+    hand_settings = {"input_files": input_files, "hand_method": drain_method_hand, "output_folder": output_folder,
+                     "coastal_expansion_gradient_limit": gradient_limit, "head_loss": JL,
+                     "z_percentile": in_str_elev_perc_value,
                      "buffer_n_cells": buffer_watershed_distance_cell}
 
     manager = Manager()
@@ -165,15 +171,22 @@ def main():
     logging.info("--> Compute hand maps...")
     grid = Grid.from_raster(hand_settings["input_files"]["rst_dem"])
     hand_settings["grid"] = grid
-    chunks = [streams_gdf["stream"].values[i:i + chunk_size] for i in range(0, len(streams_gdf["stream"].values), chunk_size)]
-    for chunk in chunks:
-        logging.info(" ---> Launching chunk from " + str(min(chunk)) + " to " + str(max(chunk)))
-        exec_pool = get_context('spawn').Pool(process_max)
-        for stream in chunk:
-            exec_pool.apply_async(compute_hand, args=(stream, hand_settings, d))
-        exec_pool.close()
-        exec_pool.join()
-    logging.info("--> Compute hand maps...DONE")
+    chunks = [streams_gdf["stream"].values[i:i + chunk_size] for i in
+              range(0, len(streams_gdf["stream"].values), chunk_size)]
+    if process_max > 1:
+        for chunk in chunks:
+            logging.info(" ---> Launching chunk from " + str(min(chunk)) + " to " + str(max(chunk)))
+            exec_pool = get_context('spawn').Pool(process_max)
+            for stream in chunk:
+                exec_pool.apply_async(compute_hand, args=(stream, hand_settings, d))
+            exec_pool.close()
+            exec_pool.join()
+        logging.info("--> Compute hand maps...DONE")
+    else:
+        for chunk in chunks:
+            logging.info(" ---> Launching chunk from " + str(min(chunk)) + " to " + str(max(chunk)))
+            for stream in chunk:
+                compute_hand(stream, hand_settings, d)
 
     logging.info("--> Verify presence of missing hand maps...")
     missing_hand = []
@@ -195,7 +208,9 @@ def main():
 
             missing_hand_out = deepcopy(missing_hand)
             for stream in missing_hand:
-                if os.path.isfile(os.path.join(hand_settings["output_folder"], mask_type, "hand_" + hand_settings["hand_method"] + "_" + mask_type + "_" + str(stream) + ".tif")):
+                if os.path.isfile(os.path.join(hand_settings["output_folder"], mask_type,
+                                               "hand_" + hand_settings["hand_method"] + "_" + mask_type + "_" + str(
+                                                       stream) + ".tif")):
                     missing_hand_out.remove(stream)
             missing_hand = missing_hand_out
 
@@ -213,21 +228,29 @@ def main():
     if coastal_expansion_active:
         if produce_only_used_hand_ce:
             if not manual_ce:
-                streams_in = streams_gdf.loc[(streams_gdf["next_strea"] == -1) | (streams_gdf["gradient"] <= gradient_limit)]
+                streams_in = streams_gdf.loc[
+                    (streams_gdf["next_strea"] == -1) | (streams_gdf["gradient"] <= gradient_limit)]
             else:
                 streams_in = streams_gdf.loc[streams_gdf["manual_ce"] == 1]
         else:
             streams_in = streams_gdf
         logging.info("--> Compute hand maps with coastal expansion...")
-        chunks = [streams_in["stream"].values[i:i + chunk_size] for i in range(0, len(streams_in["stream"].values), chunk_size)]
-        for chunk in chunks:
-            logging.info(" ---> Launching chunk from " + str(min(chunk)) + " to " + str(max(chunk)))
-            exec_pool = get_context('spawn').Pool(process_max)
-            for stream in chunk:
-                exec_pool.apply_async(compute_hand_ce, args=(stream, hand_settings, d))
-            exec_pool.close()
-            exec_pool.join()
-            logging.info("--> Compute hand maps with coastal expansion...DONE")
+        chunks = [streams_in["stream"].values[i:i + chunk_size] for i in
+                  range(0, len(streams_in["stream"].values), chunk_size)]
+        if process_max > 1:
+            for chunk in chunks:
+                logging.info(" ---> Launching chunk from " + str(min(chunk)) + " to " + str(max(chunk)))
+                exec_pool = get_context('spawn').Pool(process_max)
+                for stream in chunk:
+                    exec_pool.apply_async(compute_hand_ce, args=(stream, hand_settings, d))
+                exec_pool.close()
+                exec_pool.join()
+                logging.info("--> Compute hand maps with coastal expansion...DONE")
+        else:
+            for chunk in chunks:
+                logging.info(" ---> Launching chunk from " + str(min(chunk)) + " to " + str(max(chunk)))
+                for stream in chunk:
+                    compute_hand_ce(stream, hand_settings, d)
 
         logging.info("--> Verify presence of missing hand maps...")
         missing_hand = []
@@ -249,7 +272,9 @@ def main():
 
                 missing_hand_out = deepcopy(missing_hand)
                 for stream in missing_hand:
-                    if os.path.isfile(os.path.join(hand_settings["output_folder"], mask_type, "hand_" + hand_settings["hand_method"] + "_" + mask_type + "_" + str(stream) + ".tif")):
+                    if os.path.isfile(os.path.join(hand_settings["output_folder"], mask_type,
+                                                   "hand_" + hand_settings["hand_method"] + "_" + mask_type + "_" + str(
+                                                           stream) + ".tif")):
                         missing_hand_out.remove(stream)
                 missing_hand = missing_hand_out
 
@@ -264,7 +289,7 @@ def main():
     # -------------------------------------------------------------------------------------
     # Estimate total execution time
     tot_elapsed_time_sec = float(time.time() - code_start_time)
-    tot_elapsed_time,time_units = Give_Elapsed_Time(tot_elapsed_time_sec)
+    tot_elapsed_time, time_units = Give_Elapsed_Time(tot_elapsed_time_sec)
 
     # Info algorithm
 
@@ -275,6 +300,7 @@ def main():
     logging.info(' ==> Bye, Bye')
     logging.info(' ============================================================================ ')
     # -------------------------------------------------------------------------------------
+
 
 # -------------------------------------------------------------------------------------
 
@@ -304,6 +330,7 @@ def get_args():
 
     return alg_settings, alg_log, alg_output
 
+
 # -------------------------------------------------------------------------------------
 
 # ----------------------------------------------------------------------------
@@ -314,16 +341,20 @@ def fill_input_files(input_files_raw, input_dict):
     for key in input_files_raw.keys():
         filled_input[key] = input_files_raw[key].format(**input_dict)
     return filled_input
+
+
 # -------------------------------------------------------------------------------------
 
 # ----------------------------------------------------------------------------
 def check_missing_hands(streams, missing_hand, mask_type, hand_settings):
     for stream in streams:
         if not os.path.isfile(os.path.join(hand_settings["output_folder"], mask_type,
-                                 "hand_" + hand_settings["hand_method"] + "_" + mask_type + "_" + str(
-                                     stream) + ".tif")):
+                                           "hand_" + hand_settings["hand_method"] + "_" + mask_type + "_" + str(
+                                               stream) + ".tif")):
             missing_hand += [stream]
     return missing_hand
+
+
 # ----------------------------------------------------------------------------
 
 # ----------------------------------------------------------------------------

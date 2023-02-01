@@ -8,7 +8,7 @@ Author(s):     Mauro Arcorace (mauro.arcorace@cimafoundation.org)
                Giulia Bruno (giulia.bruno@cimafoundation.org)
                Alessia Matanò
                Andrea Libertino (andrea.libertino@cimafoundation.org)
-Date:          '20220916'
+Date:          '20230101'
 Version:       '2.0.3'
 """
 ########################################################################################################################
@@ -133,20 +133,23 @@ def calculate_basins_stats(stream, input_data, d):
     mask_FID_shp_i = os.path.join(input_data["masks_folder"], "masks_shp_" + str(stream) + ".shp")
     mask = gpd.read_file(mask_FID_shp_i)
     mask_basin = mask.loc[mask["mask_type"] == 'basin']
-    maps_basin = {}
-    for map in input_data["maps_in"].keys():
-        maps_basin[map] = rxr.open_rasterio(input_data["maps_in"][map], masked=True).rio.clip(mask_basin.geometry, from_disk=True)
 
     # compute basin features derived from static data
-    avg_basSlope = np.nanmean(maps_basin["slope"].values)
-    h_basAvg = np.nanmean(maps_basin["dem"].values)
-    avg_strSlope = np.nanmean(maps_basin["slope_channel"].values)
-    h_basMin = np.nanpercentile(maps_basin["dem"].values, 2)
-    h_basMax = np.nanpercentile(maps_basin["dem"].values, 98)
-    flow_accum_skm = np.nanmax(maps_basin["flowacc_skm"].values)
+    map_Elev = rxr.open_rasterio(input_data["maps_in"]["dem"], masked=True, cache=False).rio.clip(mask_basin.geometry, from_disk=True)
+    h_basAvg = np.nanmean(map_Elev.values)
+    h_basMin = np.nanpercentile(map_Elev.values, 2)
+    h_basMax = np.nanpercentile(map_Elev.values, 98)
+    map_Elev.close()
+
+    map_chanSlope =  rxr.open_rasterio(input_data["maps_in"]["slope_channel"], masked=True, cache=False).rio.clip(mask_basin.geometry, from_disk=True)
+    avg_strSlope = np.nanmean(map_chanSlope.values)
+    map_chanSlope.close()
+
+    map_flowAccSkm = rxr.open_rasterio(input_data["maps_in"]["flowacc_skm"], masked=True, cache=False).rio.clip(mask_basin.geometry, from_disk=True)
+    flow_accum_skm = np.nanmax(map_flowAccSkm.values)
+    map_flowAccSkm.close()
 
     str_len_km = d["streams_gdf"].loc[d["streams_gdf"]["stream"] == stream, "cum_length"].values[0]*(10**(-3))
-    #bas_area_km2 = np.nanmax(maps_basin["flowacc_skm"].values) #d["streams_gdf"].loc[d["streams_gdf"]["stream"] == stream, "area_km2"].values
 
     conc_time_in = input_data["conc_time_in"]
     conc_time = {}
@@ -154,7 +157,10 @@ def calculate_basins_stats(stream, input_data, d):
     if 'kirpich' in conc_time_in:
         # Kirpich
         # stream_length[m] - basinslope [m/m]
+        map_basSlope = rxr.open_rasterio(input_data["maps_in"]["slope"], masked=True, cache=False).rio.clip(mask_basin.geometry, from_disk=True)
+        avg_basSlope = np.nanmean(map_basSlope.values)
         conc_time['kirpich'] = ((0.000325 * np.power(str_len_km * 1000, 0.77) * np.power(avg_basSlope / 100.0, -0.385)) * 3600)  # in seconds!!!
+        map_basSlope.close()
 
     if 'california_culvert_practice' in conc_time_in:
         # California Culvert Practice
