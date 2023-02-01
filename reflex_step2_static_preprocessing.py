@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 REFlEx - Step2 - Static data preprocessing
-__date__ = '20221025'
+__date__ = '20230101'
 __version__ = '2.0.3'
 __author__ =
         'Mauro Arcorace' (mauro.arcorace@cimafoundation.org',
@@ -21,8 +21,9 @@ Version(s):
                                      Automatic selection of best epsg for proj
                                      Parallel implementation
 20220726 (2.0.1) --> Fix basin delineation procedure
-20221025 (2.0.3) --> Optimized multiprocessing
+20230101 (2.0.3) --> Optimized multiprocessing
                      Fixed pfafstetter codification
+                     Optimized singleprocessing for big domains
 """
 # -------------------------------------------------------------------------------------
 
@@ -30,7 +31,7 @@ Version(s):
 # Algorithm information
 alg_name = 'REFlEx - STEP 2 - Static Data Processing'
 alg_version = '2.0.3'
-alg_release = '2022-10-35'
+alg_release = '2023-01-01'
 # Algorithm parameter(s)
 time_format = '%Y%m%d%H%M'
 # -------------------------------------------------------------------------------------
@@ -50,6 +51,7 @@ import sys
 from multiprocessing import Pool, Manager, cpu_count, set_start_method, get_context
 from numba import config
 from copy import deepcopy
+
 
 # -------------------------------------------------------------------------------------
 
@@ -231,7 +233,6 @@ def main():
 
     os.makedirs(masks_settings["masks_folder"], exist_ok=True)
 
-
     # Find upstream basins
     shreve_unique = np.unique(streams_gdf["shreve"].values)
 
@@ -256,24 +257,25 @@ def main():
 
     masks_settings["upstream_basins"] = upst_basin
 
-    logging.warning(" --> WARNING! Streams " + ", ".join([str(i) for i in stream_to_delete]) + " have been deleted because upstream branches are missing!")
+    logging.warning(" --> WARNING! Streams " + ", ".join(
+        [str(i) for i in stream_to_delete]) + " have been deleted because upstream branches are missing!")
 
-    if len(stream_to_delete)>0:
+    if len(stream_to_delete) > 0:
         streams_gdf = streams_gdf[~streams_gdf['stream'].isin(stream_to_delete)]
         basin_gdf = basin_gdf[~basin_gdf['stream'].isin(stream_to_delete)]
-
 
     manager = Manager()
     d = manager.dict()
     d["streams_gdf"] = streams_gdf
     d["basins_gdf"] = basin_gdf
 
-    chunks = [streams_gdf["stream"].values[i:i + chunk_size] for i in range(0, len(streams_gdf["stream"].values), chunk_size)]
+    chunks = [streams_gdf["stream"].values[i:i + chunk_size] for i in
+              range(0, len(streams_gdf["stream"].values), chunk_size)]
 
     for chunk in chunks:
         logging.info(" ---> Launching chunk from " + str(min(chunk)) + " to " + str(max(chunk)))
         exec_pool = get_context('spawn').Pool(process_max)
-        for stream in chunk: #stream_ids:
+        for stream in chunk:  # stream_ids:
             exec_pool.apply_async(create_masks, args=(stream, masks_settings, d))
         exec_pool.close()
         exec_pool.join()
@@ -334,21 +336,28 @@ def main():
     time_df_out = pd.DataFrame(index=streams_gdf_out["stream"].values, columns=conc_time_in)
     results = []
 
-    for chunk in chunks:
-        logging.info(" ---> Launching chunk from " + str(min(chunk)) + " to " + str(max(chunk)))
-        exec_pool = get_context('spawn').Pool(process_max)
-        for stream in chunk:
-            results.append(exec_pool.apply_async(calculate_basins_stats, args=(stream, input_data, d)))
-        exec_pool.close()
-        exec_pool.join()
-
-    #exec_pool = Pool(process_max)
-    logging.info(" --> Collecting output..")
-    for result in results:
-        res = result.get()
-        streams_gdf_out.loc[streams_gdf_out["stream"] == res[0], ["tconc", "tpeak", "treces", "flowAcc_skm"]] = res[1:5]
-        time_df_out.loc[time_df_out.index == res[0], conc_time_in] = res[5:]
-    logging.info(" --> Collecting output..DONE")
+    if process_max > 1:
+        for chunk in chunks:
+            logging.info(" ---> Launching chunk from " + str(min(chunk)) + " to " + str(max(chunk)))
+            exec_pool = get_context('spawn').Pool(process_max)
+            for stream in chunk:
+                results.append(exec_pool.apply_async(calculate_basins_stats, args=(stream, input_data, d)))
+            exec_pool.close()
+            exec_pool.join()
+        logging.info(" --> Collecting output..")
+        for result in results:
+            res = result.get()
+            streams_gdf_out.loc[streams_gdf_out["stream"] == res[0], ["tconc", "tpeak", "treces", "flowAcc_skm"]] = res[
+                                                                                                                    1:5]
+            time_df_out.loc[time_df_out.index == res[0], conc_time_in] = res[5:]
+        logging.info(" --> Collecting output..DONE")
+    else:
+        for chunk in chunks:
+            logging.info(" ---> Launching chunk from " + str(min(chunk)) + " to " + str(max(chunk)))
+            for stream in chunk:
+                streams_gdf_out.loc[streams_gdf_out["stream"] == stream, ["tconc", "tpeak", "treces",
+                                                                          "flowAcc_skm"]] = calculate_basins_stats(
+                    stream, input_data, d)[1:5]
 
     streams_gdf_out.to_file(os.path.join(grass_output_db_vct, 'v_' + domain_name + '_' + rrs + '_streams_features.shp'),
                             driver='ESRI Shapefile')

@@ -1,6 +1,17 @@
 =========
 Changelog
 =========
+Version 2.0.3 [2023-01-01]
+**************************
+**reflex_step2_static_preprocessing.py**
+    - Optimize singleprocessing for big domains
+
+**reflex_step3_hand.py**
+    - Optimize singleprocessing for big domains
+
+**reflex_tools_basins.py**
+    - Reduced number of open maps for big domains
+
 Version 2.0.2 [2022-10-25]
 **************************
 **reflex_step2_static_preprocessing.py**
@@ -9,7 +20,7 @@ Version 2.0.2 [2022-10-25]
 **reflex_step4_flood_mapping.py**
     - Added the possibility to manually activate coastal expansion
 
-Version 2.0.2 [2022-08-11]
+Version 2.0.1 [2022-08-11]
 **************************
 **reflex_step2_static_preprocessing.py**
     - Fixed procedure for concentration time estimation
