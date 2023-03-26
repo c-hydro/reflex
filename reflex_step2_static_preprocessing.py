@@ -315,10 +315,8 @@ def main():
 
     rst_in = {}
     rst_in["slope"] = os.path.join(grass_step1_db, 'rst', 'r_' + domain_name + "_" + rrs + "_dem_slope.tif")
-    rst_in["channel"] = os.path.join(grass_step1_db, 'rst',
-                                     'r_' + domain_name + "_" + rrs + "_" + drain_method_streams.lower() + "_streams.tif")
-    rst_in["flowacc_skm"] = os.path.join(grass_step1_db, 'rst',
-                                         'r_' + domain_name + "_" + rrs + "_" + drain_method_streams.lower() + "_flow_acc_skm.tif")
+    rst_in["channel"] = os.path.join(grass_step1_db, 'rst', 'r_' + domain_name + "_" + rrs + "_" + drain_method_streams.lower() + "_streams.tif")
+    rst_in["flowacc_skm"] = os.path.join(grass_step1_db, 'rst', 'r_' + domain_name + "_" + rrs + "_" + drain_method_streams.lower() + "_flow_acc_skm.tif")
     rst_in["dem"] = os.path.join(grass_step0_db, 'r_' + domain_name + "_" + rrs + "_filled_dem.tif")
     rst_in["slope_channel"] = os.path.join(grass_step1_db, 'rst', 'r_' + domain_name + "_" + rrs + "_slope_channel.tif")
 
@@ -347,8 +345,7 @@ def main():
         logging.info(" --> Collecting output..")
         for result in results:
             res = result.get()
-            streams_gdf_out.loc[streams_gdf_out["stream"] == res[0], ["tconc", "tpeak", "treces", "flowAcc_skm"]] = res[
-                                                                                                                    1:5]
+            streams_gdf_out.loc[streams_gdf_out["stream"] == res[0], ["tconc", "tpeak", "treces", "flowAcc_skm"]] = res[1:5]
             time_df_out.loc[time_df_out.index == res[0], conc_time_in] = res[5:]
         logging.info(" --> Collecting output..DONE")
     else:
@@ -359,8 +356,7 @@ def main():
                                                                           "flowAcc_skm"]] = calculate_basins_stats(
                     stream, input_data, d)[1:5]
 
-    streams_gdf_out.to_file(os.path.join(grass_output_db_vct, 'v_' + domain_name + '_' + rrs + '_streams_features.shp'),
-                            driver='ESRI Shapefile')
+    streams_gdf_out.to_file(os.path.join(grass_output_db_vct, 'v_' + domain_name + '_' + rrs + '_streams_features.shp'), driver='ESRI Shapefile')
     time_df_out.to_csv(os.path.join(grass_output_db_txt, 'tab_' + domain_name + '_corr_time_estimation.csv'))
     # -------------------------------
 

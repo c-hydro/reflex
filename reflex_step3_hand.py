@@ -229,7 +229,7 @@ def main():
         if produce_only_used_hand_ce:
             if not manual_ce:
                 streams_in = streams_gdf.loc[
-                    (streams_gdf["next_strea"] == -1) | (streams_gdf["gradient"] <= gradient_limit)]
+                    (streams_gdf["next_strea"] <= 0) | (streams_gdf["gradient"] <= gradient_limit)]
             else:
                 streams_in = streams_gdf.loc[streams_gdf["manual_ce"] == 1]
         else:

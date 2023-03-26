@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """
 REFlEx - Utils - Assign discharge hydro-hydra
-__date__ = '20220530'
-__version__ = '1.0.0'
+__date__ = '20230315'
+__version__ = '1.0.1'
 __author__ =
         'Andrea Libertino (andrea.libertino@cimafoundation.org)'
         'Lorenzo Campo (lorenzo.campo@cimafoundation.org)'
@@ -10,6 +10,7 @@ __library__ = 'REFlEx'
 General command line:
 ### python reflex_step1_hydro_derivatives.py -settings_file "settings.json"
 Version(s):
+20230315 (1.0.1) --> Add check on available neighbours when system does not converge
 20220530 (1.0.0) --> Beta release
 """
 
@@ -33,8 +34,8 @@ def main():
     # -------------------------------------------------------------------------------------
     # Version and algorithm information
     alg_name = 'REFlEx - Utils - Assign discharge hydro-hydra '
-    alg_version = '1.0.0'
-    alg_release = '2022-05-30'
+    alg_version = '1.0.1'
+    alg_release = '2023-03-15'
     # -------------------------------------------------------------------------------------
 
     # -------------------------------------------------------------------------------------
@@ -144,16 +145,17 @@ def main():
     max_attempts = data_settings["algorithm"]["max_attempts"]
     k_neighbors = data_settings["algorithm"]["number_of_neighbours"]
     attempt = 1
+    last_run = False
 
-    # Manage reflex features
-    while len(input_values)>0 and attempt <= max_attempts:
+    # Assign discharge
+    while len(input_values) > 0 and attempt <= max_attempts:
         logging.info(" --> Assign hydrological and hydraulic network... Attempt: " + str(attempt))
         in_pts = [(x,y) for x,y in zip(basin_reflex_centroid.loc[input_values].geometry.x , basin_reflex_centroid.loc[input_values].geometry.y)]
         qry_pts = [(x,y) for x,y in zip(basin_hydro_centroid.geometry.x , basin_hydro_centroid.geometry.y)]
 
         tab_close, tab_dist = get_nearest(in_pts, qry_pts, k_neighbors=k_neighbors)
 
-        for i_row,i in enumerate(input_values):
+        for i_row, i in enumerate(input_values):
             logging.info(" ---> Compute stream " + str(i))
             nearest_indeces = tab_close[i_row,:]
             nearest_distances = tab_dist[i_row,:]
@@ -164,11 +166,19 @@ def main():
         logging.info(" --> Assign hydrological and hydraulic network... Attempt: " + str(attempt) + " DONE")
 
         input_values = out_df.loc[out_df["diff_facc"].values > data_settings["algorithm"]["diff_flowacc_accept"]].index
-        attempt = attempt+1
-        k_neighbors =  k_neighbors * 2
+        attempt = attempt + 1
+        k_neighbors = k_neighbors * 2
+
+        if last_run == True:
+            break
+
+        # If search for a larger than the available basin, colalpse to the maximum and do the last try
+        if k_neighbors > len(qry_pts):
+            k_neighbors = len(qry_pts)
+            last_run = True
 
     if len(input_values) > 0:
-        out_df.loc[input_values] = [np.nan, np.nan, np.nan]
+        out_df.loc[input_values] = np.nan
         logging.warning("WARNING! " + str(len(input_values)) + " streams have not been assigned")
 
     # Manage reflex features
