@@ -1,17 +1,16 @@
 {
   "algorithm": {
     "version": "2.0.1",
-    "grass_bin": "grass",
-    "proj_lib": "/usr/share/proj"
+    "grass_bin": "grass78"
   },
   "domain": {
-    "name": "sicilia_nordorientale",
-    "res_deg": 0.00005,
-    "res_km": 0.005,
-    "res_str": "5m",
+    "name": "nile",
+    "res_deg": 0.00083,
+    "res_km": 0.090,
+    "res_str": "90m",
     "source_epsg": 4326,
     "target_epsg": 4326,
-    "min_nonnull_value": -9000
+    "min_nonnull_value": -9999
   },
   "step_0": {
     "dir_name": "{base_path}/dem_conditioning",
@@ -36,13 +35,13 @@
     "__comment__": "methods available: stream: d8 ; hand: d8 - dinf",
     "dir_name": "{base_path}/hydro_derivatives",
     "stream_definition_method": "d8",
-    "hand_definition_method": "dinf",
-    "flow_accumulation_threshold_cells": 100000
+    "hand_definition_method": "d8",
+    "flow_accumulation_threshold_cells": 30000
   },
   "step_2": {
     "dir_name": "{base_path}/data_static",
     "max_attempts_make_mask": 3,
-    "buffer_for_coastal_expansion_cells": 20,
+    "buffer_for_coastal_expansion_cells": 500,
     "concentration_time": {
       "kirpich": false,
       "california_culvert_practice": false,
@@ -53,8 +52,8 @@
       "siccardi": false
     },
     "multiprocessing": {
-      "enable": false,
-      "max_cores": 2,
+      "enable": true,
+      "max_cores": 3,
       "chunk_size": 300
     }
   },
@@ -63,30 +62,30 @@
     "max_attempts_make_hand": 5,
     "coastal_expansion": {
       "enable": true,
-      "gradient_limit": -9999,
+      "gradient_limit": 1000,
       "head_loss_cm_m": 0.02,
-      "slope_percentile": 0.001
+      "slope_percentile": 0.0001
     },
     "multiprocessing": {
-      "enable": true,
-      "max_cores": 30,
+      "enable": false,
+      "max_cores": 3,
       "chunk_size": 300
     }
   },
   "step_4": {
-    "dir_name": "{base_path}/flood",
+    "dir_name": "{base_path}/flood_5",
     "__comment__" : "volume_file_path and return_period can be also provided as arguments -volumes_file -rp",
-    "volume_file_path": "/home/reflex/data/ISMEA/reflex/sicilia_orientale/input/discharge_sicilia_orientale.csv",
-    "return_period": 100,
+    "volume_file_path": "/home/reflex/data/ISMEA/reflex/nile/input/nile_assigned.csv",
+    "return_period": 5,
     "minimum_volume_included": 5,
-    "roughness_coefficient":0.05,
+    "roughness_coefficient":0.1,
     "optimization": {
       "max_water_depth": 20,
       "min_water_depth": 0.0001
     },
     "multiprocessing": {
       "enable": true,
-      "max_cores": 30
+      "max_cores": 20
     },
     "merging_maps":{
       "multiprocessing_enabled": false,

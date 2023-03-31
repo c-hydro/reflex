@@ -8,8 +8,8 @@ Author(s):     Mauro Arcorace (mauro.arcorace@cimafoundation.org)
                Giulia Bruno (giulia.bruno@cimafoundation.org)
                Alessia Matanò
                Andrea Libertino (andrea.libertino@cimafoundation.org)
-Date:          '20230101'
-Version:       '2.0.3'
+Date:          '20230330'
+Version:       '2.1.0'
 """
 ########################################################################################################################
 # Import libraries
@@ -33,7 +33,7 @@ import xarray as xr
 ########################################################################################################################
 
 # Function for create basin masks with and without coastal expansion
-def create_masks(stream, masks_settings, d):
+def compute_basin_static(stream, masks_settings, d):
     sys.stdout.flush()
     print(' ---> Create mask for stream ' + str(stream))
     streams_gdf = d["streams_gdf"]
@@ -48,7 +48,6 @@ def create_masks(stream, masks_settings, d):
     # find all upstreams
     iUpstream = Pfaf_find_upstream(pfaf, masks_settings["pfaf_limits"][iMBID][1])
     subset_Upstream = streams_gdf_mbid.loc[(streams_gdf_mbid['pfA'] >= pfaf) & (streams_gdf_mbid['pfA'] <= iUpstream)]
-
 
     # find up to 2 next upstreams
     tmp_Upstream_new, head_basins = Pfaf_find_Nextupstreams(pfaf, subset_Upstream, row, stream, head_basins, streams_gdf_mbid)
@@ -119,37 +118,24 @@ def create_masks(stream, masks_settings, d):
         warnings.simplefilter("ignore")
         df_out.to_file(outfile)
 
-    return
-
-# ----------------------------------------------------------------------------------------------------------------------
-
-# ----------------------------------------------------------------------------------------------------------------------
-# Function to calculate basin main features
-def calculate_basins_stats(stream, input_data, d):
-    sys.stdout.flush()
     print(" ---> Analyse basin " + str(stream))
-
-    # Import and clip inputs
-    mask_FID_shp_i = os.path.join(input_data["masks_folder"], "masks_shp_" + str(stream) + ".shp")
-    mask = gpd.read_file(mask_FID_shp_i)
-    mask_basin = mask.loc[mask["mask_type"] == 'basin']
-
-    # compute basin features derived from static data
-    map_Elev = rxr.open_rasterio(input_data["maps_in"]["dem"], masked=True, cache=False).rio.clip(mask_basin.geometry, from_disk=True)
-    h_basAvg = np.nanmean(map_Elev.values)
-    h_basMin = np.nanpercentile(map_Elev.values, 2)
-    h_basMax = np.nanpercentile(map_Elev.values, 98)
+    input_data = masks_settings["input_data"]
+    mask_basin = df_to_merge['basin']
+    map_Elev = rxr.open_rasterio(input_data["maps_in"]["dem"], masked=True, cache=False, parse_coordinates=False).rio.clip_box(minx=mask_basin["lon_min"], maxx=mask_basin["lon_max"], miny=mask_basin["lat_min"], maxy=mask_basin["lat_max"]).rio.clip(mask_basin.geometry, from_disk=True)
+    h_basAvg = np.nanmean(map_Elev.values)/100
+    h_basMin = np.nanpercentile(map_Elev.values, 2)/100
+    h_basMax = np.nanpercentile(map_Elev.values, 98)/100
     map_Elev.close()
 
-    map_chanSlope =  rxr.open_rasterio(input_data["maps_in"]["slope_channel"], masked=True, cache=False).rio.clip(mask_basin.geometry, from_disk=True)
-    avg_strSlope = np.nanmean(map_chanSlope.values)
+    map_chanSlope = rxr.open_rasterio(input_data["maps_in"]["slope_channel"], masked=True, cache=False, parse_coordinates=False).rio.clip_box(minx=mask_basin["lon_min"], maxx=mask_basin["lon_max"], miny=mask_basin["lat_min"], maxy=mask_basin["lat_max"]).rio.clip(mask_basin.geometry, from_disk=True)
+    avg_strSlope = np.nanmean(map_chanSlope.values)/1000
     map_chanSlope.close()
 
-    map_flowAccSkm = rxr.open_rasterio(input_data["maps_in"]["flowacc_skm"], masked=True, cache=False).rio.clip(mask_basin.geometry, from_disk=True)
+    map_flowAccSkm = rxr.open_rasterio(input_data["maps_in"]["flowacc_skm"], masked=True, cache=False, parse_coordinates=False).rio.clip_box(minx=mask_basin["lon_min"], maxx=mask_basin["lon_max"], miny=mask_basin["lat_min"], maxy=mask_basin["lat_max"]).rio.clip(mask_basin.geometry, from_disk=True)
     flow_accum_skm = np.nanmax(map_flowAccSkm.values)
     map_flowAccSkm.close()
 
-    str_len_km = d["streams_gdf"].loc[d["streams_gdf"]["stream"] == stream, "cum_length"].values[0]*(10**(-3))
+    str_len_km = d["streams_gdf"].loc[d["streams_gdf"]["stream"] == stream, "cum_length"].values[0] * (10 ** (-3))
 
     conc_time_in = input_data["conc_time_in"]
     conc_time = {}
@@ -157,8 +143,8 @@ def calculate_basins_stats(stream, input_data, d):
     if 'kirpich' in conc_time_in:
         # Kirpich
         # stream_length[m] - basinslope [m/m]
-        map_basSlope = rxr.open_rasterio(input_data["maps_in"]["slope"], masked=True, cache=False).rio.clip(mask_basin.geometry, from_disk=True)
-        avg_basSlope = np.nanmean(map_basSlope.values)
+        map_basSlope = rxr.open_rasterio(input_data["maps_in"]["slope"], masked=True, cache=False, parse_coordinates=False).rio.clip_box(minx=mask_basin["lon_min"], maxx=mask_basin["lon_max"], miny=mask_basin["lat_min"], maxy=mask_basin["lat_max"]).rio.clip(mask_basin.geometry, from_disk=True)
+        avg_basSlope = np.nanmean(map_basSlope.values)/1000
         conc_time['kirpich'] = ((0.000325 * np.power(str_len_km * 1000, 0.77) * np.power(avg_basSlope / 100.0, -0.385)) * 3600)  # in seconds!!!
         map_basSlope.close()
 
@@ -193,38 +179,16 @@ def calculate_basins_stats(stream, input_data, d):
         # area [km2]
         conc_time['siccardi'] = (3600 * (0.27 * np.sqrt(flow_accum_skm) + 0.25))  # in seconds!!!
 
-        # compute median tc
-
-        # conc_time['tc_avg'] = conc_time[['tc_P', 'tc_K', 'tc_CCP', 'tc_V', 'tc_G', 'tc_Pas', 'tc_S']].mean(axis=1)
-        # conc_time['tc_min'] = conc_time[['tc_P', 'tc_K', 'tc_CCP', 'tc_V', 'tc_G', 'tc_Pas', 'tc_S']].min(axis=1)
-
-        # compute centered mean (e.g. excluding min and max of the series
-        # sum_tc_tmp = conc_time[['tc_P', 'tc_K', 'tc_CCP', 'tc_V', 'tc_G', 'tc_Pas', 'tc_S']].sum(axis=1)
-        # max_tc_tmp = conc_time[['tc_P', 'tc_K', 'tc_CCP', 'tc_V', 'tc_G', 'tc_Pas', 'tc_S']].max(axis=1)
-        # min_tc_tmp = conc_time[['tc_P', 'tc_K', 'tc_CCP', 'tc_V', 'tc_G', 'tc_Pas', 'tc_S']].min(axis=1)
-        # length = len(['tc_P', 'tc_K', 'tc_CCP', 'tc_V', 'tc_G', 'tc_Pas', 'tc_S'])
-
-        # conc_time['tc_cent_avg'] = (sum_tc_tmp - max_tc_tmp - min_tc_tmp) / (length - 2)
-
     conc_time['out_value'] = statistics.median([conc_time[i] for i in conc_time_in])
 
     # If corrivation time degenerate to +Inf (difference of elevation in the basin is neglectible) use Viparelli
     if np.isinf(conc_time['out_value']):
         conc_time['out_value'] = 3600 * str_len_km / 5.4
 
-    # Time to peak and recession time is computed according to
-    # https: // www.wcc.nrcs.usda.gov / ftpref / wntsc / H & H / NEHhydrology / ch16.pdf
-
-    # compute peak time
-    conc_time['tpeak'] = ((0.133 * conc_time['out_value']) / 2 + 0.6 * conc_time['out_value'])
-
-    # compute recession time
-    conc_time['treces'] = (1.67 * conc_time['tpeak'])
-
     out_conc_time = np.array([conc_time[i] for i in conc_time_in])
 
-    return np.concatenate((np.array((stream, conc_time['out_value'], conc_time['tpeak'], conc_time['treces'], flow_accum_skm)), out_conc_time))
-    # np.array((stream, conc_time['tc_med'].values[0], conc_time['tpeak'].values[0], conc_time['treces'].values[0], flow_accum_skm))
+    return np.concatenate((np.array(
+        (stream, conc_time['out_value'], flow_accum_skm)), out_conc_time))
 
 # ----------------------------------------------------------------------------------------------------------------------
 

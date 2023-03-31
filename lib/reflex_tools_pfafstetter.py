@@ -8,8 +8,8 @@ Author(s):     Mauro Arcorace (mauro.arcorace@cimafoundation.org)
                Giulia Bruno (giulia.bruno@cimafoundation.org)
                Alessia Matanò
                Andrea Libertino (andrea.libertino@cimafoundation.org)
-Date:          '20220916'
-Version:       '2.0.1'
+Date:          '20230330'
+Version:       '2.1.0'
 """
 ########################################################################################################################
 # Import libraries

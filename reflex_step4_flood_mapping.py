@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """
 REFlEx - Step4 - Flood mapping
-__date__ = '20221025'
-__version__ = '2.0.3'
+__date__ = '20230330'
+__version__ = '2.1.0'
 __author__ =
         'Mauro Arcorace' (mauro.arcorace@cimafoundation.org',
         'Alessandro Masoero (alessandro.masoero@cimafoundation.org',
@@ -18,7 +18,8 @@ Version(s):
 20190220 (1.0.0) --> Beta release
 20220406 (2.0.0) --> Full revision
 20220913 (2.0.2) --> Add check on channel gradient (GRASS GIS bug for gradients<10E-06)
-20221025 (2.0.3) --> Add possibility to manually activate coastal expansion
+                     Add possibility to manually activate coastal expansion
+20230330 (2.1.0) --> Add possibility to provide a roughness coefficient for each stream
 """
 # -------------------------------------------------------------------------------------
 
@@ -48,8 +49,8 @@ from numba import config
 # -------------------------------------------------------------------------------------
 # Algorithm information
 alg_name = 'REFlEx - STEP 4 - Flood mapping'
-alg_version = '2.0.3'
-alg_release = '2022-10-25'
+alg_version = '2.1.0'
+alg_release = '2023-03-30'
 # Algorithm parameter(s)
 time_format = '%Y%m%d%H%M'
 
@@ -194,18 +195,23 @@ def main():
     streams_gdf_out["v_i"] = -9999
     streams_gdf_out["diff_final"] = -9999
 
-    results = []
-    exec_pool = get_context('spawn').Pool(process_max)
-    for stream in stream_ids:
-        results.append(exec_pool.apply_async(optimise_volume, args=(stream, optimise_setting, d)))
-    exec_pool.close()
-    exec_pool.join()
-
-    logging.info(" --> Collecting output..")
-    for result in results:
-        res = result.get()
-        streams_gdf_out.loc[streams_gdf_out["stream"] == res[0], ["V_cut", "v_i", "diff_final"]] = res[1:]
-    logging.info(" --> Collecting output...DONE!")
+    if process_max > 1:
+        logging.info(" --> Compute flood maps..")
+        results = []
+        exec_pool = get_context('spawn').Pool(process_max)
+        for stream in stream_ids:
+            results.append(exec_pool.apply_async(optimise_volume, args=(stream, optimise_setting, d)))
+        exec_pool.close()
+        exec_pool.join()
+        logging.info(" --> Compute flood maps.. DONE")
+        logging.info(" --> Collecting output..")
+        for result in results:
+            res = result.get()
+            streams_gdf_out.loc[streams_gdf_out["stream"] == res[0], ["V_cut", "v_i", "diff_final"]] = res[1:]
+        logging.info(" --> Collecting output...DONE!")
+    else:
+        for stream in stream_ids:
+            streams_gdf_out.loc[streams_gdf_out["stream"] == stream, ["V_cut", "v_i", "diff_final"]] = optimise_volume(stream, optimise_setting, d)
 
     # Postprocessing
     logging.info(" --> Merging flood maps...")

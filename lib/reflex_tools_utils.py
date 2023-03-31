@@ -5,8 +5,8 @@ Name:          reflex_tools_utils
 Author(s):     Mauro Arcorace (mauro.arcorace@cimafoundation.org)
                Fabio Delogu (fabio.delogu@cimafoundation.org)
                Andrea Libertino (andrea.libertino@cimafoundation.org)
-Date:          '20220404'
-Version:       '2.0.0'
+Date:          '20230330'
+Version:       '2.1.0'
 """
 ########################################################################################################################
 
@@ -39,6 +39,7 @@ def Give_Elapsed_Time(time):
 # ---------------------------------------------------------------------------------------------------
 def Start_GRASS_py3(grass_bin, epsg_code, grass_temp_db_name, out_folder):
     # Check GRASS config path
+    os.environ['PROJ_LIB'] = "/usr/share/proj"
     startcmd = grass_bin + ' --config path'
     p = subprocess.Popen(startcmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = p.communicate()
@@ -78,7 +79,6 @@ def Start_GRASS_py3(grass_bin, epsg_code, grass_temp_db_name, out_folder):
         path = dir + os.pathsep + path
     else:
         path = dir
-    print("--> LD_LIBRARY_PATH environment variable: %s" % str(path))
 
     # Set os environments
     os.environ['LD_LIBRARY_PATH'] = path

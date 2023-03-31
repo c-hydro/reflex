@@ -1,7 +1,8 @@
 {
   "algorithm": {
-    "version": "2.0",
-    "grass_bin": "grass78"
+    "version": "2.1.0",
+    "grass_bin": "grass78",
+    "proj_lib": "/usr/share/proj"
   },
   "domain": {
     "name": "magra",
@@ -52,7 +53,7 @@
       "siccardi": false
     },
     "multiprocessing": {
-      "enable": true,
+      "enable": false,
       "max_cores": 2,
       "chunk_size": 200
     }

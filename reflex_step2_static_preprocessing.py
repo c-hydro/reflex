@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """
 REFlEx - Step2 - Static data preprocessing
-__date__ = '20230101'
-__version__ = '2.0.3'
+__date__ = '20230330'
+__version__ = '2.1.0'
 __author__ =
         'Mauro Arcorace' (mauro.arcorace@cimafoundation.org',
         'Alessandro Masoero (alessandro.masoero@cimafoundation.org',
@@ -21,17 +21,19 @@ Version(s):
                                      Automatic selection of best epsg for proj
                                      Parallel implementation
 20220726 (2.0.1) --> Fix basin delineation procedure
-20230101 (2.0.3) --> Optimized multiprocessing
+20230101 (2.0.2) --> Optimized multiprocessing
                      Fixed pfafstetter codification
-                     Optimized singleprocessing for big domains
+20230330 (2.1.0) --> Optimized singleprocessing for big domains
+                     Revise all the process, merged basin features scripts
+
 """
 # -------------------------------------------------------------------------------------
 
 # -------------------------------------------------------------------------------------
 # Algorithm information
 alg_name = 'REFlEx - STEP 2 - Static Data Processing'
-alg_version = '2.0.3'
-alg_release = '2023-01-01'
+alg_version = '2.0.4'
+alg_release = '2023-03-30'
 # Algorithm parameter(s)
 time_format = '%Y%m%d%H%M'
 # -------------------------------------------------------------------------------------
@@ -43,15 +45,13 @@ import logging
 from argparse import ArgumentParser
 import time
 from lib.reflex_tools_utils import Give_Elapsed_Time, convert_wgs_to_utm, set_logging, read_file_json
-from lib.reflex_tools_basins import create_masks, calculate_basins_stats
+from lib.reflex_tools_basins2 import compute_basin_static
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import sys
 from multiprocessing import Pool, Manager, cpu_count, set_start_method, get_context
 from numba import config
-from copy import deepcopy
-
 
 # -------------------------------------------------------------------------------------
 
@@ -114,6 +114,11 @@ def main():
     except:
         max_attempts = 3
 
+    try:
+        proj_lib = data_settings["algorithm"]["proj_db"]
+    except:
+        proj_lib = "/usr/share/proj"
+
     if data_settings["step_2"]["multiprocessing"]["enable"]:
         process_max = data_settings["step_2"]["multiprocessing"]["max_cores"]
         if process_max is None:
@@ -167,9 +172,21 @@ def main():
 
     code_start_time = time.time()
 
+    # Check proj
+    os.environ['PROJ_LIB'] = proj_lib
+    if not os.path.join(proj_lib, "proj.db"):
+        logging.error(
+            " ERROR! proj.db file not found at " + proj_lib + " Please add the 'proj_db' key under the 'algorithm' key of the setting file to specify the location!")
+        raise FileNotFoundError
+
     # Define output GRASS database
     grass_step1_db = step1_dir_name
     grass_step0_db = step0_dir_name
+
+    conc_time_in = [auth for auth in c_time.keys() if c_time[auth] is True]
+    if len(conc_time_in) == 0:
+        logging.error(" --> ERROR! Choose at least a concentration time formula!")
+        raise ValueError
 
     # CALCULATE STREAMS PFAFSTETTER HIERARCHY
     # ---------------------------------------
@@ -179,7 +196,7 @@ def main():
     shape_in["shp_stream_pfaf"] = os.path.join(grass_step1_db, "vct",
                                                'v_' + domain_name + '_' + rrs + '_streams_mod_pf.shp')
     shape_in["shp_subbasins"] = os.path.join(grass_step1_db, "vct",
-                                             'v_' + domain_name + '_' + rrs + '_subbasins_dissolved.shp')
+                                             'v_' + domain_name + '_' + rrs + '_subbasins.shp')
     # -------------------------------
 
     # -------------------------------
@@ -204,7 +221,7 @@ def main():
 
     # read stream geodtaframe
     streams_gdf = gpd.read_file(shape_in["shp_stream_pfaf"]).copy()
-    additional_cols = ["tconc", "tpeak", "treces", "str_len_km", "flowAcc_skm"]
+    additional_cols = ["tconc", "str_len_km", "flowAcc_skm"]
     for field in additional_cols:
         streams_gdf[field] = np.nan
     streams_gdf["str_len_km"] = streams_gdf.to_crs('epsg:%s' % str(prj_epsg)).geometry.length.values / (10 ** 3)
@@ -216,6 +233,7 @@ def main():
         streams_gdf.loc[streams_gdf["stream"] == stream, "distance"] = min(15000,
                                                                            area_km.loc[stream].values * 0.13 + 2000)
 
+    logging.info(' --> Calculate macrobasins limits')
     # calculate min and max pfaf per macrobasin and initialise settings
     pfaf_limits = {}
     for iMBID in streams_gdf['MBID_new'].unique():
@@ -233,6 +251,7 @@ def main():
 
     os.makedirs(masks_settings["masks_folder"], exist_ok=True)
 
+    logging.info(' --> Find upstream basins for each basin')
     # Find upstream basins
     shreve_unique = np.unique(streams_gdf["shreve"].values)
 
@@ -256,6 +275,7 @@ def main():
                         stream_to_delete = stream_to_delete + [row["stream"]]
 
     masks_settings["upstream_basins"] = upst_basin
+    logging.info(' --> Find upstream basins for each basin.. DONE')
 
     logging.warning(" --> WARNING! Streams " + ", ".join(
         [str(i) for i in stream_to_delete]) + " have been deleted because upstream branches are missing!")
@@ -269,67 +289,23 @@ def main():
     d["streams_gdf"] = streams_gdf
     d["basins_gdf"] = basin_gdf
 
+    rst_in = {}
+    rst_in["slope"] = os.path.join(grass_step1_db, 'rst', 'r_' + domain_name + "_" + rrs + "_dem_slope_perthousend.tif")
+    rst_in["channel"] = os.path.join(grass_step1_db, 'rst',
+                                     'r_' + domain_name + "_" + rrs + "_" + drain_method_streams.lower() + "_streams.tif")
+    rst_in["flowacc_skm"] = os.path.join(grass_step1_db, 'rst',
+                                         'r_' + domain_name + "_" + rrs + "_" + drain_method_streams.lower() + "_flow_acc_skm.tif")
+    rst_in["dem"] = os.path.join(grass_step1_db, 'rst', 'r_' + domain_name + "_" + rrs + "_filled_dem_cm.tif")
+    rst_in["slope_channel"] = os.path.join(grass_step1_db, 'rst', 'r_' + domain_name + "_" + rrs + "_slope_channel_perthousend.tif")
+    input_data = {}
+    input_data["maps_in"] = rst_in
+    input_data["conc_time_in"] = conc_time_in
+
+    masks_settings["input_data"] = input_data
+
     chunks = [streams_gdf["stream"].values[i:i + chunk_size] for i in
               range(0, len(streams_gdf["stream"].values), chunk_size)]
 
-    for chunk in chunks:
-        logging.info(" ---> Launching chunk from " + str(min(chunk)) + " to " + str(max(chunk)))
-        exec_pool = get_context('spawn').Pool(process_max)
-        for stream in chunk:  # stream_ids:
-            exec_pool.apply_async(create_masks, args=(stream, masks_settings, d))
-        exec_pool.close()
-        exec_pool.join()
-
-    missing_masks = []
-    for stream in streams_gdf["stream"].values:
-        if not os.path.isfile(os.path.join(masks_settings["masks_folder"], 'masks_shp_{}.shp'.format(stream))):
-            missing_masks += [stream]
-    attempt_no = 0
-
-    while len(missing_masks) > 0 and attempt_no <= max_attempts:
-        logging.info(str(len(missing_masks)) + " masks are missing! Compute...")
-        logging.info(', '.join([str(i) for i in missing_masks]))
-        logging.info("Attempt " + str(attempt_no))
-        exec_pool = get_context('spawn').Pool(process_max)
-        for stream in missing_masks:
-            exec_pool.apply_async(create_masks, args=(stream, masks_settings, d))
-        exec_pool.close()
-        exec_pool.join()
-
-        missing_masks_out = deepcopy(missing_masks)
-        for stream in missing_masks:
-            if os.path.isfile(os.path.join(masks_settings["masks_folder"], 'masks_shp_{}.shp'.format(stream))):
-                missing_masks_out.remove(stream)
-        missing_masks = missing_masks_out
-
-        attempt_no = attempt_no + 1
-
-    if len(missing_masks) > 0:
-        logging.error(" --> Some masks has not been produced after " + str(
-            attempt_no) + " attempts! Verify problems in streams: " + ",".join([str(i) for i in missing_masks]))
-        raise RuntimeError
-    # ------------------------------
-
-    # -------------------------------
-    logging.info(' --> Calculate stream statistics...')
-
-    rst_in = {}
-    rst_in["slope"] = os.path.join(grass_step1_db, 'rst', 'r_' + domain_name + "_" + rrs + "_dem_slope.tif")
-    rst_in["channel"] = os.path.join(grass_step1_db, 'rst', 'r_' + domain_name + "_" + rrs + "_" + drain_method_streams.lower() + "_streams.tif")
-    rst_in["flowacc_skm"] = os.path.join(grass_step1_db, 'rst', 'r_' + domain_name + "_" + rrs + "_" + drain_method_streams.lower() + "_flow_acc_skm.tif")
-    rst_in["dem"] = os.path.join(grass_step0_db, 'r_' + domain_name + "_" + rrs + "_filled_dem.tif")
-    rst_in["slope_channel"] = os.path.join(grass_step1_db, 'rst', 'r_' + domain_name + "_" + rrs + "_slope_channel.tif")
-
-    input_data = {}
-    input_data["masks_folder"] = masks_settings["masks_folder"]
-    input_data["maps_in"] = rst_in
-
-    conc_time_in = [auth for auth in c_time.keys() if c_time[auth] is True]
-    if len(conc_time_in) == 0:
-        logging.error(" --> ERROR! Choose at least a concentration time formula!")
-        raise ValueError
-
-    input_data["conc_time_in"] = conc_time_in
     streams_gdf_out = d["streams_gdf"].copy()
     time_df_out = pd.DataFrame(index=streams_gdf_out["stream"].values, columns=conc_time_in)
     results = []
@@ -339,22 +315,20 @@ def main():
             logging.info(" ---> Launching chunk from " + str(min(chunk)) + " to " + str(max(chunk)))
             exec_pool = get_context('spawn').Pool(process_max)
             for stream in chunk:
-                results.append(exec_pool.apply_async(calculate_basins_stats, args=(stream, input_data, d)))
+                results.append(exec_pool.apply_async(compute_basin_static, args=(stream, masks_settings, d)))
             exec_pool.close()
             exec_pool.join()
         logging.info(" --> Collecting output..")
         for result in results:
             res = result.get()
-            streams_gdf_out.loc[streams_gdf_out["stream"] == res[0], ["tconc", "tpeak", "treces", "flowAcc_skm"]] = res[1:5]
+            streams_gdf_out.loc[streams_gdf_out["stream"] == res[0], ["tconc", "flowAcc_skm"]] = res[1:3]
             time_df_out.loc[time_df_out.index == res[0], conc_time_in] = res[5:]
         logging.info(" --> Collecting output..DONE")
     else:
         for chunk in chunks:
             logging.info(" ---> Launching chunk from " + str(min(chunk)) + " to " + str(max(chunk)))
             for stream in chunk:
-                streams_gdf_out.loc[streams_gdf_out["stream"] == stream, ["tconc", "tpeak", "treces",
-                                                                          "flowAcc_skm"]] = calculate_basins_stats(
-                    stream, input_data, d)[1:5]
+                streams_gdf_out.loc[streams_gdf_out["stream"] == stream, ["tconc", "flowAcc_skm"]] = compute_basin_static(stream, masks_settings, d)[1:3]
 
     streams_gdf_out.to_file(os.path.join(grass_output_db_vct, 'v_' + domain_name + '_' + rrs + '_streams_features.shp'), driver='ESRI Shapefile')
     time_df_out.to_csv(os.path.join(grass_output_db_txt, 'tab_' + domain_name + '_corr_time_estimation.csv'))

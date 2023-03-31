@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """
 REFlEx - Step3 - HAND map computation
-__date__ = '20230101'
-__version__ = '2.0.3'
+__date__ = '20230330'
+__version__ = '2.1.0'
 __author__ =
         'Mauro Arcorace' (mauro.arcorace@cimafoundation.org',
         'Alessandro Masoero (alessandro.masoero@cimafoundation.org)',
@@ -17,7 +17,7 @@ Version(s):
 20220406 (2.0.0) --> Full revision - Use pysheds for HAND definition
                                      Parallel implementation
 20220808 (2.0.2) --> Optimized multiprocessing
-20220808 (2.0.3) --> Optimized singleprocessing for big domains
+20230330 (2.1.0) --> Optimized singleprocessing for big domains
 """
 # -------------------------------------------------------------------------------------
 
@@ -40,8 +40,8 @@ from copy import deepcopy
 # -------------------------------------------------------------------------------------
 # Algorithm information
 alg_name = 'REFlEx - STEP 3 - Hand Map Computation'
-alg_version = '2.0.3'
-alg_release = '2023-01-01'
+alg_version = '2.1.0'
+alg_release = '2023-03-30'
 # Algorithm parameter(s)
 time_format = '%Y%m%d%H%M'
 

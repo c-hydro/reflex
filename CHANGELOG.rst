@@ -1,16 +1,28 @@
 =========
 Changelog
 =========
-Version 2.0.3 [2023-01-01]
+Version 2.1.0 [2023-03-30]
 **************************
+**reflex_step1_hydro_derivatives.py**
+    - Simplify integration with local grass an proj installations
+    - Optimize size and number of produced hydroderivatives
+
 **reflex_step2_static_preprocessing.py**
     - Optimize singleprocessing for big domains
+    - Revise all the process, merged basin features scripts
 
 **reflex_step3_hand.py**
     - Optimize singleprocessing for big domains
 
+**reflex_step4_flood_mapping.py**
+    - Add possibility to provide a roughness coefficient for each stream
+    - Optimize singleprocessing for big domains
+
 **reflex_tools_basins.py**
-    - Reduced number of open maps for big domains
+    - Merged basin masks and basin features functions for optimize files IO
+
+**reflex_tools_flooding.py**
+    - Pick the stream-specific roughness or rely on the provided one
 
 Version 2.0.2 [2022-10-25]
 **************************
