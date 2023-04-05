@@ -3,9 +3,16 @@ Changelog
 =========
 Version 2.1.0 [2023-03-30]
 **************************
+**CAUTION**
+Compatibility with previously created static data is broken when upgrading to 2.1.x
+
+**reflex_step0_dem_conditioning.py**
+    - Simplify integration with local grass an proj installations
+
 **reflex_step1_hydro_derivatives.py**
     - Simplify integration with local grass an proj installations
-    - Optimize size and number of produced hydroderivatives
+    - Rationalise the number of produced hydroderivatives
+    - Dem is exported in cm and slope in per-thousend to use integer maps
 
 **reflex_step2_static_preprocessing.py**
     - Optimize singleprocessing for big domains

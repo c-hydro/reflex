@@ -5,10 +5,10 @@ __date__ = '20230330'
 __version__ = '2.1.0'
 __author__ =
         'Mauro Arcorace' (mauro.arcorace@cimafoundation.org',
-        'Alessandro Masoero (alessandro.masoero@cimafoundation.org)',
+        'Alessandro Masoero (alessandro.masoero@cimafoundation.org',
         'Valerio Basso',
         'Alessia Matanò',
-        'Andrea Libertino (andrea.libertino@cimafoundation.org)'
+        'Andrea Libertino (andrea.libertino@cimafoundation.org'
 __library__ = 'REFlEx'
 General command line:
 ### python reflex_step3_hand.py -log_file "/path/to/log.txt" -settings_file "settings.json" -base_path "/path/to/base_folder"
@@ -18,6 +18,7 @@ Version(s):
                                      Parallel implementation
 20220808 (2.0.2) --> Optimized multiprocessing
 20230330 (2.1.0) --> Optimized singleprocessing for big domains
+                     Break backward compatibility with old static data
 """
 # -------------------------------------------------------------------------------------
 
@@ -147,7 +148,7 @@ def main():
         "shp_masks": os.path.join(step2_dir_name, 'vct', 'masks', 'masks_shp_{stream}.shp'),
         "rst_pnt": os.path.join(step1_dir_name, 'rst', 'r_{domain}_{res}_{dir_method}_flow_dir.tif'),
         "rst_stream": os.path.join(step1_dir_name, 'rst', 'r_{domain}_{res}_{dir_method_stream}_streams.tif'),
-        "rst_dem": os.path.join(step1_dir_name, 'rst', 'r_{domain}_{res}_dem.tif')
+        "rst_dem": os.path.join(step1_dir_name, 'rst', 'r_{domain}_{res}_filled_dem_cm.tif')
     }
     input_files = fill_input_files(input_files_raw, input_dict)
     streams_gdf = gpd.read_file(input_files["shp_streams"])
