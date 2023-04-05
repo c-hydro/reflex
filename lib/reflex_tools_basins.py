@@ -218,9 +218,9 @@ def compute_hand(stream_id, hand_settings, d):
     stream = grid.read_raster(hand_settings["input_files"]["rst_stream"], window = basin_bbox, window_crs = grid.crs, nodata=255)
 
     if hand_settings["hand_method"] == 'dinf':
-        hand = grid.compute_hand(fdir=fdir, dem=dem*100, mask=stream==stream_id, routing='dinf')
+        hand = grid.compute_hand(fdir=fdir, dem=dem, mask=stream==stream_id, routing='dinf')
     elif hand_settings["hand_method"] == 'd8':
-        hand = grid.compute_hand(fdir=fdir, dem=dem*100, mask=stream == stream_id, dirmap=(2,1,8,7,6,5,4,3), routing='d8')
+        hand = grid.compute_hand(fdir=fdir, dem=dem, mask=stream == stream_id, dirmap=(2,1,8,7,6,5,4,3), routing='d8')
 
     grid.to_raster(hand, hand_out_file, apply_output_mask=True, dtype=np.float32, tiled=True)
     stream.mask=stream==stream_id
@@ -264,7 +264,7 @@ def compute_hand_ce(stream_id, hand_settings, d):
     z_p = np.nanpercentile(dem.values[stream.values==stream_id], hand_settings["z_percentile"])
 
     # Compute extended DH: DEM - z_p + loss_matrix
-    hand_ext = 100 * dem.squeeze() - (100 * z_p) + cost * hand_settings["head_loss"]
+    hand_ext = dem.squeeze() - (z_p) + cost * hand_settings["head_loss"]
 
     hand_ext = xr.where(hand_ext<0,0,hand_ext)
     if np.min(hand_ext) < 0:
