@@ -20,6 +20,7 @@ Version(s):
 20220913 (2.0.2) --> Add check on channel gradient (GRASS GIS bug for gradients<10E-06)
                      Add possibility to manually activate coastal expansion
 20230330 (2.1.0) --> Add possibility to provide a roughness coefficient for each stream
+                     Break backward compatibility with old static data
 """
 # -------------------------------------------------------------------------------------
 

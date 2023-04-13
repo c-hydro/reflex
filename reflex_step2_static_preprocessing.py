@@ -8,8 +8,8 @@ __author__ =
         'Alessandro Masoero (alessandro.masoero@cimafoundation.org',
         'Valerio Basso',
         'Alessia Matanò',
-        'Giulia Bruno (giulia.bruno@cimafoundation.org)',
-        'Andrea Libertino (andrea.libertino@cimafoundation.org)'
+        'Giulia Bruno (giulia.bruno@cimafoundation.org',
+        'Andrea Libertino (andrea.libertino@cimafoundation.org'
 __library__ = 'REFlEx'
 General command line:
 ### python reflex_step2_static_preprocessing.py -log_file "/path/to/log.txt" -settings_file "settings.json" -base_path "/path/to/base_folder"
@@ -25,6 +25,7 @@ Version(s):
                      Fixed pfafstetter codification
 20230330 (2.1.0) --> Optimized singleprocessing for big domains
                      Revise all the process, merged basin features scripts
+                     Break backward compatibility with old static data
 
 """
 # -------------------------------------------------------------------------------------
@@ -45,7 +46,7 @@ import logging
 from argparse import ArgumentParser
 import time
 from lib.reflex_tools_utils import Give_Elapsed_Time, convert_wgs_to_utm, set_logging, read_file_json
-from lib.reflex_tools_basins2 import compute_basin_static
+from lib.reflex_tools_basins import compute_basin_static
 import geopandas as gpd
 import numpy as np
 import pandas as pd

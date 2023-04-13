@@ -8,7 +8,7 @@ __author__ =
         'Alessandro Masoero (alessandro.masoero@cimafoundation.org',
         'Valerio Basso',
         'Alessia Matanò',
-        'Andrea Libertino (andrea.libertino@cimafoundation.org)'
+        'Andrea Libertino (andrea.libertino@cimafoundation.org'
 __library__ = 'REFlEx'
 General command line:
 ### python reflex_step1_hydro_derivatives.py -log_file "/path/to/log.txt" -settings_file "settings.json" -base_path "/path/to/base_folder" (-dem "/path/to/dem.tif")
@@ -20,6 +20,7 @@ Version(s):
 20220726 (2.0.2) --> Fix basin delineation procedure
 20230330 (2.1.0) --> Optimize size and number of produced hydroderivatives
                      Simplify integration with local grass and proj installations
+                     Break backward compatibility with old static data
 """
 # -------------------------------------------------------------------------------------
 # Import python libraries
