@@ -264,7 +264,7 @@ def compute_hand_ce(stream_id, hand_settings, d):
     z_p = np.nanpercentile(dem.values[stream.values==stream_id], hand_settings["z_percentile"])
 
     # Compute extended DH: DEM - z_p + loss_matrix
-    hand_ext = dem.squeeze() - (z_p) + cost * hand_settings["head_loss"]
+    hand_ext = np.max(dem.squeeze() - (z_p), 0) + cost * hand_settings["head_loss"]
 
     hand_ext = xr.where(hand_ext<0,0,hand_ext)
     if np.min(hand_ext) < 0:
