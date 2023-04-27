@@ -4,7 +4,7 @@ Changelog
 Version 2.1.0 [2023-03-30]
 **************************
 **CAUTION**
-Compatibility with previously created static data is broken when upgrading to 2.1.x
+Compatibility with previously created static data is broken when upgrading to versions above 2.1.x
 
 **reflex_step0_dem_conditioning.py**
     - Simplify integration with local grass an proj installations
