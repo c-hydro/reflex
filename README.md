@@ -1,5 +1,9 @@
 # REFlEx
-REFlEx (Rapid Estimation of FLood EXtent) is the geomorphologic inundation model developed at CIMA Foundation
+REFlEx (Rapid Estimation of FLood EXtent) is the geomorphologic inundation model developed at CIMA Foundation.
+
+![REFLEX_scheme_Arcorace](https://user-images.githubusercontent.com/57633516/234909358-24dd321d-ef52-4f53-ab2d-8074cc1f9fba.png)
+
+The figure summarise the REFlEx modelling chain, outlining the interconnections between its diverse modules. The model's inputs include a digital elevation model (DEM), flowlines representing the river network, and information on the streamflow. Terrain elevation is represented by using a hydrologically conditioned DEM, which undergoes filtering, filling, and carving according to the input flowlines. The conditioned DEM is processed using the D8 and D-Infinity models to extract hydrological derivatives, such as drainage directions. To delineate floodplains, the HAND methodology is utilized, which derives local drainage potentials from normalized topography. Simultaneously, stream hierarchy is computed to develop HAND maps for each river order, starting from headwaters. Sequentially "filling" the HAND maps using the input surface runoff volumes enables the derivation of flood extent and depth information for each sub-basin. Balancing the volume underlying the HAND map with the observed one produces an optimal flood map. The output of REFLEX is a flood map that provides information on water extent and depth. 
 
 ### Intallation
 Prerequisites:
