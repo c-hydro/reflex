@@ -187,8 +187,7 @@ def compute_basin_static(stream, masks_settings, d):
 
     out_conc_time = np.array([conc_time[i] for i in conc_time_in])
 
-    return np.concatenate((np.array(
-        (stream, conc_time['out_value'], flow_accum_skm)), out_conc_time))
+    return np.concatenate((np.array((stream, conc_time['out_value'], flow_accum_skm)), out_conc_time))
 
 # ----------------------------------------------------------------------------------------------------------------------
 
