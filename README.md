@@ -17,6 +17,8 @@ WARNING! The version of the gdal python package should match the one installed o
 #### References
 *Scientific references*
 
+Arcorace, M., Libertino, A., Alfieri, L., Gabellani, S., Matanò, A., Masoero, A., Basso, V., & Boni, G. (2024). REFLEX—A novel method for the rapid estimation of flood extent. Journal of Flood Risk Management, e13034. DOI: [10.1111/jfr3.13034](https://doi.org/10.1111/jfr3.13034).
+
 Arcorace M. - [Enhancing Existing Operational Forecast-Based Flood Detection Solutions through an Integrated Use of Satellite Earth Observations and Numerical Models.](https://iris.unige.it/retrieve/handle/11567/1047031/533661/phdunige_4181596.pdf) Doctorate Thesis in Computer Science
 and Systems Engineering (Cycle XXXIII). 2021, Università di Genova.
 
